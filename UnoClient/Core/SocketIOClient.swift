@@ -1,5 +1,42 @@
 import Foundation
 
+struct SocketPacket: Equatable, Sendable {
+    enum Kind: Equatable, Sendable {
+        case event
+        case acknowledgement
+        case disconnect
+    }
+
+    let kind: Kind
+    let acknowledgementID: Int?
+    let arguments: [JSONValue]
+
+    init?(encoded: String) {
+        guard let type = encoded.first else { return nil }
+        if type == "1" {
+            kind = .disconnect
+            acknowledgementID = nil
+            arguments = []
+            return
+        }
+
+        switch type {
+        case "2": kind = .event
+        case "3": kind = .acknowledgement
+        default: return nil
+        }
+
+        var payload = encoded.dropFirst()
+        let digits = payload.prefix(while: \.isNumber)
+        acknowledgementID = digits.isEmpty ? nil : Int(digits)
+        payload = payload.dropFirst(digits.count)
+        guard let arguments = try? JSONDecoder().decode([JSONValue].self, from: Data(payload.utf8)) else {
+            return nil
+        }
+        self.arguments = arguments
+    }
+}
+
 /// Minimal Socket.IO v4 client: Engine.IO v4 over a single WebSocket transport,
 /// default namespace, text frames only. Just enough protocol for this app —
 /// upgrade dance, binary attachments and multiple namespaces are intentionally absent.
@@ -234,39 +271,22 @@ actor SocketIOClient {
     }
 
     private func handleSocketPacket(_ packet: String) {
-        guard let type = packet.first else { return }
-        let rest = String(packet.dropFirst())
-        switch type {
-        case "2": dispatch(body: rest, isAck: false)
-        case "3": dispatch(body: rest, isAck: true)
-        case "1":  // server-initiated namespace disconnect
-            disconnectInternal(error: nil, notify: true)
-        default:
-            break
-        }
-    }
-
-    private func dispatch(body: String, isAck: Bool) {
-        // Optional leading ack id digits, then a JSON array.
-        var ackID: Int?
-        var jsonPart = Substring(body)
-        let digits = jsonPart.prefix(while: \.isNumber)
-        if !digits.isEmpty, let value = Int(digits) {
-            ackID = value
-            jsonPart = jsonPart.dropFirst(digits.count)
-        }
-        guard let args = try? JSONDecoder().decode([JSONValue].self, from: Data(jsonPart.utf8)) else { return }
-
-        if isAck {
-            guard let ackID, let continuation = ackContinuations.removeValue(forKey: ackID) else { return }
-            continuation.resume(returning: args)
-        } else {
-            guard case .string(let event)? = args.first else { return }
+        guard let packet = SocketPacket(encoded: packet) else { return }
+        switch packet.kind {
+        case .event:
+            guard case .string(let event)? = packet.arguments.first else { return }
             // Events with server-requested acks are acknowledged with an empty payload.
-            if let ackID, connected, let task {
-                task.send(.string("43\(ackID)[]"), completionHandler: { _ in })
+            if let acknowledgementID = packet.acknowledgementID, connected, let task {
+                task.send(.string("43\(acknowledgementID)[]"), completionHandler: { _ in })
             }
-            onEvent(event, Array(args.dropFirst()))
+            onEvent(event, Array(packet.arguments.dropFirst()))
+        case .acknowledgement:
+            guard let acknowledgementID = packet.acknowledgementID,
+                let continuation = ackContinuations.removeValue(forKey: acknowledgementID)
+            else { return }
+            continuation.resume(returning: packet.arguments)
+        case .disconnect:
+            disconnectInternal(error: nil, notify: true)
         }
     }
 

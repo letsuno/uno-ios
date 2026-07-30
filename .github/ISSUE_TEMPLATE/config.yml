@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/letsuno/uno-ios/security/advisories/new
+    about: Report vulnerabilities privately to the maintainers.
+  - name: Server project
+    url: https://github.com/letsuno/uno-online/issues
+    about: Report server deployment and backend problems in UNO Online.

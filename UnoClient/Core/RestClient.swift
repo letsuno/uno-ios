@@ -34,7 +34,20 @@ struct PasskeyRegisterOptions: Decodable {
 }
 
 struct RestClient: Sendable {
+    typealias Transport = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+
     let endpoint: ServerEndpoint
+    private let transport: Transport
+
+    init(
+        endpoint: ServerEndpoint,
+        transport: @escaping Transport = { request in
+            try await URLSession.shared.data(for: request)
+        }
+    ) {
+        self.endpoint = endpoint
+        self.transport = transport
+    }
 
     private static let getTimeout: TimeInterval = 10
     private static let postTimeout: TimeInterval = 15
@@ -124,7 +137,7 @@ struct RestClient: Sendable {
     }
 
     private func run<T: Decodable>(_ request: URLRequest) async throws -> T {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await transport(request)
         guard let http = response as? HTTPURLResponse else {
             throw ApiError(message: "Invalid server response", status: 0)
         }

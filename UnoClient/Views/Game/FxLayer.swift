@@ -145,20 +145,22 @@ struct PlayFlightView: View {
     }
 }
 
-private struct PlayFlightModifier: ViewModifier, Animatable {
+@Animatable
+private struct PlayFlightModifier: ViewModifier {
     var progress: CGFloat
+    @AnimatableIgnored
     let from: CGPoint
+    @AnimatableIgnored
     let control: CGPoint
+    @AnimatableIgnored
     let to: CGPoint
+    @AnimatableIgnored
     let startScale: CGFloat
+    @AnimatableIgnored
     let peakRotation: Double
     /// Tilt the card settles at on landing — matches the pile's top-card rest tilt.
+    @AnimatableIgnored
     let endRotation: Double
-
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
 
     func body(content: Content) -> some View {
         let t = progress
@@ -232,16 +234,15 @@ private struct SingleDrawFlight: View {
     }
 }
 
-private struct DrawFlightModifier: ViewModifier, Animatable {
+@Animatable
+private struct DrawFlightModifier: ViewModifier {
     var progress: CGFloat
+    @AnimatableIgnored
     let from: CGPoint
+    @AnimatableIgnored
     let to: CGPoint
+    @AnimatableIgnored
     let endScale: CGFloat
-
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
 
     func body(content: Content) -> some View {
         let t = progress
@@ -481,16 +482,15 @@ struct ThrowFlightView: View {
     }
 }
 
-private struct BezierPositionModifier: ViewModifier, Animatable {
+@Animatable
+private struct BezierPositionModifier: ViewModifier {
     var progress: CGFloat
+    @AnimatableIgnored
     let from: CGPoint
+    @AnimatableIgnored
     let control: CGPoint
+    @AnimatableIgnored
     let to: CGPoint
-
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
 
     func body(content: Content) -> some View {
         let t = progress

@@ -35,12 +35,8 @@ Select the `UnoClient` scheme, choose your development team for device signing, 
 To verify a release build without code signing:
 
 ```bash
-xcodebuild build \
-  -project UnoClient.xcodeproj \
-  -scheme UnoClient \
-  -configuration Release \
-  -destination 'generic/platform=iOS' \
-  CODE_SIGNING_ALLOWED=NO
+make quality
+make build
 ```
 
 ## Server Connections
@@ -61,10 +57,7 @@ Never commit real credentials to project files or shared schemes.
 Run the test suite with:
 
 ```bash
-xcodebuild test \
-  -project UnoClient.xcodeproj \
-  -scheme UnoClient \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+make test TEST_DESTINATION='platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
 ## Project Layout
@@ -78,6 +71,10 @@ UnoClient/
   Views/    # SwiftUI screens and components
 UnoClientTests/  # endpoint policy, encoding, and game-rule tests
 ```
+
+## Contributing and Support
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and pull-request expectations. Use [GitHub Issues](https://github.com/letsuno/uno-ios/issues) for reproducible client problems, and follow [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
 ## Project Status
 
