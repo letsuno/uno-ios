@@ -1,0 +1,795 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "-- ms" : {
+
+    },
+    "%@ caught %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ caught %2$@"
+          }
+        }
+      }
+    },
+    "%@ draws" : {
+
+    },
+    "%@ draws %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ draws %2$lld"
+          }
+        }
+      }
+    },
+    "%@ is choosing a color" : {
+
+    },
+    "%@ is deciding on +4" : {
+
+    },
+    "%@ is picking a swap target" : {
+
+    },
+    "%@ is skipped" : {
+
+    },
+    "%@ must draw %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ must draw %2$lld"
+          }
+        }
+      }
+    },
+    "%@ wants to swap seats" : {
+
+    },
+    "%@ WINS!" : {
+
+    },
+    "%@'s turn" : {
+
+    },
+    "%lld" : {
+
+    },
+    "%lld ms" : {
+
+    },
+    "%lld online" : {
+
+    },
+    "%lld pts" : {
+
+    },
+    "%lld rooms" : {
+
+    },
+    "%llds" : {
+
+    },
+    "%llds turns" : {
+
+    },
+    "^[%lld card](inflect: true)" : {
+
+    },
+    "^[%lld house rule](inflect: true)" : {
+
+    },
+    "^[%lld round win](inflect: true)" : {
+
+    },
+    "+%lld" : {
+
+    },
+    "+2 and +4 can stack on each other" : {
+
+    },
+    "+4" : {
+
+    },
+    "×%lld" : {
+
+    },
+    "⊘" : {
+
+    },
+    "★" : {
+
+    },
+    "1 min" : {
+
+    },
+    "2 cards" : {
+
+    },
+    "2 min" : {
+
+    },
+    "3 cards" : {
+
+    },
+    "3 min" : {
+
+    },
+    "3+ same numbers in a row: everyone else draws 1" : {
+
+    },
+    "4 cards" : {
+
+    },
+    "5 min" : {
+
+    },
+    "6 cards" : {
+
+    },
+    "15" : {
+
+    },
+    "20" : {
+
+    },
+    "25" : {
+
+    },
+    "A playable drawn card must be played" : {
+
+    },
+    "Accept" : {
+
+    },
+    "Accept +4" : {
+
+    },
+    "Action rejected" : {
+
+    },
+    "Add bot here" : {
+
+    },
+    "Allow spectators" : {
+
+    },
+    "Autopilot" : {
+
+    },
+    "Autopilot enabled" : {
+
+    },
+    "Autopilot once" : {
+
+    },
+    "Back" : {
+
+    },
+    "Back to room" : {
+
+    },
+    "Bare hosts default to https. Plain-http LAN servers are detected automatically." : {
+
+    },
+    "Blind draw" : {
+
+    },
+    "Blitz time limit" : {
+
+    },
+    "Blue" : {
+
+    },
+    "Bomb card" : {
+
+    },
+    "Bot %@ joined" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Cancel queue" : {
+
+    },
+    "Cannot reach server: %@" : {
+
+    },
+    "Cannot win on a Wild card" : {
+
+    },
+    "Cannot win on Skip/Reverse/+2" : {
+
+    },
+    "Catch %@!" : {
+
+    },
+    "CAUGHT!" : {
+
+    },
+    "CHALLENGE FAILED!" : {
+
+    },
+    "CHALLENGE WON!" : {
+
+    },
+    "Challenge!" : {
+
+    },
+    "Change difficulty" : {
+
+    },
+    "Chat" : {
+
+    },
+    "Cheating detected — room closed" : {
+
+    },
+    "Choose a color" : {
+
+    },
+    "Choose a player to swap hands with" : {
+
+    },
+    "Close" : {
+
+    },
+    "Close room" : {
+
+    },
+    "Connect" : {
+
+    },
+    "Connecting…" : {
+
+    },
+    "Connection failed: %@" : {
+
+    },
+    "Copy" : {
+
+    },
+    "Could not create room" : {
+
+    },
+    "Could not join room" : {
+
+    },
+    "Could not rejoin room" : {
+
+    },
+    "Create" : {
+
+    },
+    "Create account" : {
+
+    },
+    "Create Passkey" : {
+
+    },
+    "Create Room" : {
+
+    },
+    "Cross stack" : {
+
+    },
+    "Decline" : {
+
+    },
+    "Development server — any username signs in." : {
+
+    },
+    "Disable autopilot" : {
+
+    },
+    "Double score" : {
+
+    },
+    "Draw until playable" : {
+
+    },
+    "Draw victims get a payback opportunity" : {
+
+    },
+    "Drawing" : {
+
+    },
+    "Drawn cards stay hidden until your next turn" : {
+
+    },
+    "Drop several cards of the same number at once" : {
+
+    },
+    "Easy" : {
+
+    },
+    "Elimination" : {
+
+    },
+    "Enable autopilot" : {
+
+    },
+    "End turn" : {
+
+    },
+    "Endgame & scoring" : {
+
+    },
+    "Enter" : {
+
+    },
+    "Enter a valid server link" : {
+
+    },
+    "Everyone agreed — press again to start" : {
+
+    },
+    "Fast mode" : {
+
+    },
+    "Forced play" : {
+
+    },
+    "Forced play after draw" : {
+
+    },
+    "Game over" : {
+
+    },
+    "Green" : {
+
+    },
+    "Hand limit" : {
+
+    },
+    "Hard" : {
+
+    },
+    "Hide hands" : {
+
+    },
+    "Illegal play attempts cost a drawn card" : {
+
+    },
+    "In queue: %@" : {
+
+    },
+    "Join" : {
+
+    },
+    "Join next round" : {
+
+    },
+    "Jump-in" : {
+
+    },
+    "Keep drawing until you can play" : {
+
+    },
+    "Kick" : {
+
+    },
+    "Leave" : {
+
+    },
+    "Leave game" : {
+
+    },
+    "Leave room" : {
+
+    },
+    "Leave the room?" : {
+
+    },
+    "Leave this room?" : {
+
+    },
+    "Live games" : {
+
+    },
+    "Loading settings…" : {
+
+    },
+    "Lost connection to server" : {
+
+    },
+    "Match" : {
+
+    },
+    "Message" : {
+
+    },
+    "Misplay penalty" : {
+
+    },
+    "Missed-UNO penalty" : {
+
+    },
+    "Mode" : {
+
+    },
+    "Move to spectators" : {
+
+    },
+    "Moved to spectators" : {
+
+    },
+    "Must call UNO before the second-to-last card lands" : {
+
+    },
+    "Needs an even player count" : {
+
+    },
+    "NEW" : {
+
+    },
+    "New Room" : {
+
+    },
+    "Nickname" : {
+
+    },
+    "No +4 challenges" : {
+
+    },
+    "No action-card finish" : {
+
+    },
+    "No games in progress. Create a room to get one going." : {
+
+    },
+    "No hints" : {
+
+    },
+    "No players" : {
+
+    },
+    "No wild finish" : {
+
+    },
+    "Normal" : {
+
+    },
+    "Novice" : {
+
+    },
+    "Off" : {
+
+    },
+    "Online multiplayer client" : {
+
+    },
+    "Only the host can change settings" : {
+
+    },
+    "Ownership transfers soon…" : {
+
+    },
+    "Pace" : {
+
+    },
+    "Pass" : {
+
+    },
+    "Passkey created" : {
+
+    },
+    "Password" : {
+
+    },
+    "Password needs at least 8 characters with letters and digits. Nickname 1–20 characters." : {
+
+    },
+    "Pick a swap target" : {
+
+    },
+    "Play an identical card out of turn" : {
+
+    },
+    "Play multiple same numbers" : {
+
+    },
+    "Play Reverse to bounce a +2 back" : {
+
+    },
+    "Play Reverse to bounce a +4 back" : {
+
+    },
+    "Play Skip to pass a draw stack onward" : {
+
+    },
+    "play.example.com or http://192.168.1.10:3001" : {
+
+    },
+    "Playable cards are not highlighted" : {
+
+    },
+    "Players over the score cap drop out" : {
+
+    },
+    "Playing a 0 rotates all hands in play direction" : {
+
+    },
+    "Playing a 7 swaps hands with a chosen player" : {
+
+    },
+    "Preset" : {
+
+    },
+    "Queued for next round" : {
+
+    },
+    "Quick sign-in" : {
+
+    },
+    "R%lld" : {
+
+    },
+    "Random seating each round" : {
+
+    },
+    "Recent servers" : {
+
+    },
+    "Reconnecting (%lld/5)…" : {
+
+    },
+    "Red" : {
+
+    },
+    "Remove %@" : {
+
+    },
+    "Remove bot" : {
+
+    },
+    "Removed from room" : {
+
+    },
+    "Request seat swap?" : {
+
+    },
+    "Respond to +4" : {
+
+    },
+    "Reveal small hands" : {
+
+    },
+    "Revenge mode" : {
+
+    },
+    "Reverse deflects +2" : {
+
+    },
+    "Reverse deflects +4" : {
+
+    },
+    "REVERSE!" : {
+
+    },
+    "Room closed after inactivity" : {
+
+    },
+    "Room closed because it was empty" : {
+
+    },
+    "Room code" : {
+
+    },
+    "Room code copied" : {
+
+    },
+    "Room code is 6 characters" : {
+
+    },
+    "Room code or link" : {
+
+    },
+    "Room Settings" : {
+
+    },
+    "Room was closed" : {
+
+    },
+    "Round %lld finished" : {
+
+    },
+    "ROUND OVER" : {
+
+    },
+    "Round points count twice" : {
+
+    },
+    "Save" : {
+
+    },
+    "Seat %lld" : {
+
+    },
+    "Sending too fast" : {
+
+    },
+    "Server" : {
+
+    },
+    "Server rejected auth config request: %@" : {
+
+    },
+    "Session expired, sign in again" : {
+
+    },
+    "Seven swaps hands" : {
+
+    },
+    "Share" : {
+
+    },
+    "Shorter animations and snappier turns" : {
+
+    },
+    "Show hands" : {
+
+    },
+    "Shuffle seats" : {
+
+    },
+    "Sign in" : {
+
+    },
+    "Sign in with key" : {
+
+    },
+    "Sign in with Passkey" : {
+
+    },
+    "Sign out" : {
+
+    },
+    "Sign-in check failed: %@" : {
+
+    },
+    "Signed in from another device" : {
+
+    },
+    "Silent UNO" : {
+
+    },
+    "Skip deflect" : {
+
+    },
+    "SKIP!" : {
+
+    },
+    "Someone" : {
+
+    },
+    "SPEC" : {
+
+    },
+    "Special cards" : {
+
+    },
+    "Spectate" : {
+
+    },
+    "Spectating" : {
+
+    },
+    "spectator" : {
+
+    },
+    "Spectator view" : {
+
+    },
+    "Stack +2" : {
+
+    },
+    "Stack +4" : {
+
+    },
+    "Stacking & deflection" : {
+
+    },
+    "Strict UNO call" : {
+
+    },
+    "Swap declined (%@)" : {
+
+    },
+    "Swap with %@" : {
+
+    },
+    "Switch server" : {
+
+    },
+    "T%lld" : {
+
+    },
+    "Target score" : {
+
+    },
+    "Team mode" : {
+
+    },
+    "The host closed the room" : {
+
+    },
+    "This server has browser human-verification (Turnstile) enabled — password sign-in may be rejected from a native client." : {
+
+    },
+    "Throw item" : {
+
+    },
+    "Transfer ownership" : {
+
+    },
+    "Turn time limit" : {
+
+    },
+    "UNO" : {
+
+    },
+    "UNO calls" : {
+
+    },
+    "UNO calls are not announced to others" : {
+
+    },
+    "uno_ak_…" : {
+
+    },
+    "UNO!" : {
+
+    },
+    "Use API key" : {
+
+    },
+    "Username" : {
+
+    },
+    "Waiting for game state…" : {
+
+    },
+    "Waiting for the host…" : {
+
+    },
+    "Wild +4 can always be played, never challenged" : {
+
+    },
+    "Wild first turn" : {
+
+    },
+    "Wilds may open the game" : {
+
+    },
+    "Yellow" : {
+
+    },
+    "You are spectating — tap a free seat to join" : {
+
+    },
+    "You must play if you hold a playable card" : {
+
+    },
+    "YOU WIN!" : {
+
+    },
+    "Your turn" : {
+
+    },
+    "Your turn!" : {
+
+    },
+    "Zero rotates hands" : {
+
+    }
+  },
+  "version" : "1.0"
+}
