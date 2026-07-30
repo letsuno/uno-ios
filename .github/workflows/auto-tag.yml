@@ -1,0 +1,167 @@
+name: Auto Tag
+
+on:
+  workflow_run: # zizmor: ignore[dangerous-triggers] Never check out run content; require push/main/success and revalidate the exact SHA against current main before writes.
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact current main SHA to recover; defaults to current main
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: auto-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Tag release version
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Read release metadata and create the immutable annotated tag.
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+    steps:
+      - name: Validate source and select release tag
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVERY_REF_NAME: ${{ github.ref_name }}
+          RECOVERY_REF_TYPE: ${{ github.ref_type }}
+          REQUESTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          default_branch=$(gh api "/repos/${GITHUB_REPOSITORY}" --jq '.default_branch')
+          if [[ "${default_branch}" != "main" ]]; then
+            echo "::error::Expected main as the default branch, got ${default_branch}."
+            exit 1
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]] &&
+            [[ "${RECOVERY_REF_TYPE}" != "branch" || "${RECOVERY_REF_NAME}" != "${default_branch}" ]]; then
+            echo "::error::Recovery must use the default branch workflow definition."
+            exit 1
+          fi
+
+          main_sha=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/${default_branch}" --jq '.object.sha')
+          source_sha=${REQUESTED_SHA:-${main_sha}}
+          if [[ ! "${source_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Source SHA must be a full lowercase commit SHA."
+            exit 1
+          fi
+          if [[ "${source_sha}" != "${main_sha}" ]]; then
+            echo "::error::Source ${source_sha} is stale; current main is ${main_sha}."
+            exit 1
+          fi
+
+          xcconfig=$(gh api \
+            "/repos/${GITHUB_REPOSITORY}/contents/Configuration/Shared.xcconfig?ref=${source_sha}" \
+            --jq '.content' | tr -d '\n' | base64 --decode)
+          version=$(awk -F '=' '
+            /^[[:space:]]*MARKETING_VERSION[[:space:]]*=/ {
+              value = $2
+              sub(/\/\/.*/, "", value)
+              gsub(/[[:space:]]/, "", value)
+              print value
+              count++
+            }
+            END { if (count != 1) exit 1 }
+          ' <<< "${xcconfig}")
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::MARKETING_VERSION must be a three-part release version, got ${version}."
+            exit 1
+          fi
+
+          tag="v${version}"
+          matching_refs=$(gh api "/repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}")
+          ref_count=$(jq --arg ref "refs/tags/${tag}" '[.[] | select(.ref == $ref)] | length' <<< "${matching_refs}")
+          if [[ "${ref_count}" -gt 1 ]]; then
+            echo "::error::GitHub returned multiple exact refs for ${tag}."
+            exit 1
+          fi
+
+          if [[ "${ref_count}" -eq 1 ]]; then
+            ref_type=$(jq -r --arg ref "refs/tags/${tag}" \
+              '.[] | select(.ref == $ref) | .object.type' <<< "${matching_refs}")
+            ref_sha=$(jq -r --arg ref "refs/tags/${tag}" \
+              '.[] | select(.ref == $ref) | .object.sha' <<< "${matching_refs}")
+            if [[ "${ref_type}" == "tag" ]]; then
+              tag_object=$(gh api "/repos/${GITHUB_REPOSITORY}/git/tags/${ref_sha}")
+              ref_type=$(jq -r '.object.type' <<< "${tag_object}")
+              ref_sha=$(jq -r '.object.sha' <<< "${tag_object}")
+            fi
+            if [[ "${ref_type}" != "commit" ]]; then
+              echo "::error::Tag ${tag} does not resolve directly to a commit."
+              exit 1
+            fi
+
+            comparison=$(gh api "/repos/${GITHUB_REPOSITORY}/compare/${ref_sha}...${main_sha}" --jq '.status')
+            if [[ "${comparison}" != "ahead" && "${comparison}" != "identical" ]]; then
+              echo "::error::Existing tag ${tag} is not an ancestor of current main."
+              exit 1
+            fi
+            echo "Reusing ${tag} at ${ref_sha}."
+          else
+            tagger_date=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+            tag_object_sha=$(jq -n \
+              --arg tag "${tag}" \
+              --arg message "Release ${tag}" \
+              --arg object "${source_sha}" \
+              --arg date "${tagger_date}" \
+              '{
+                tag: $tag,
+                message: $message,
+                object: $object,
+                type: "commit",
+                tagger: {
+                  name: "github-actions[bot]",
+                  email: "41898282+github-actions[bot]@users.noreply.github.com",
+                  date: $date
+                }
+              }' | gh api --method POST \
+                "/repos/${GITHUB_REPOSITORY}/git/tags" \
+                --input - \
+                --jq '.sha')
+            jq -n \
+              --arg ref "refs/tags/${tag}" \
+              --arg sha "${tag_object_sha}" \
+              '{ref: $ref, sha: $sha}' | gh api --method POST \
+                "/repos/${GITHUB_REPOSITORY}/git/refs" \
+                --input - \
+                --silent
+            echo "Created ${tag} at ${source_sha}."
+          fi
+
+          echo "release_tag=${tag}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "### Release tag"
+            echo
+            echo "Selected \`${tag}\` from \`${source_sha}\`."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  publish:
+    name: Publish GitHub Release
+    needs: tag
+    if: needs.tag.outputs.release_tag != ''
+    permissions:
+      contents: write # Delegate GitHub Release creation to the reusable workflow.
+    uses: ./.github/workflows/publish.yml
+    with:
+      release_tag: ${{ needs.tag.outputs.release_tag }}

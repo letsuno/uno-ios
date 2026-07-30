@@ -99,10 +99,12 @@ jobs:
           echo "id=${simulator_id}" >> "${GITHUB_OUTPUT}"
 
       - name: Run tests
+        env:
+          SELECTED_TEST_DESTINATION: platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}
         run: |
           set -o pipefail
           make test \
-            TEST_DESTINATION='platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}' \
+            TEST_DESTINATION="${SELECTED_TEST_DESTINATION}" \
             DERIVED_DATA_PATH="${RUNNER_TEMP}/DerivedData" \
             RESULT_BUNDLE_PATH="${RUNNER_TEMP}/TestResults.xcresult" \
             2>&1 | tee "${TEST_LOG}"
