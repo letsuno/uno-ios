@@ -74,7 +74,7 @@ UnoClientTests/  # endpoint policy, encoding, and game-rule tests
 
 ## Contributing and Support
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and pull-request expectations. Use [GitHub Issues](https://github.com/letsuno/uno-ios/issues) for reproducible client problems, and follow [SECURITY.md](SECURITY.md) for private vulnerability reports.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow and pull-request expectations, and [RELEASING.md](RELEASING.md) for the automated tag and GitHub Release process. Use [GitHub Issues](https://github.com/letsuno/uno-ios/issues) for reproducible client problems, and follow [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
 ## Project Status
 

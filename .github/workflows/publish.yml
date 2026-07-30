@@ -1,0 +1,147 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Existing v* tag to publish
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing v* tag to publish
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: publish-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Validate tags and create or recover the GitHub Release.
+    steps:
+      - name: Validate release tag
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_REF_NAME: ${{ github.ref_name }}
+          REQUEST_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must use vMAJOR.MINOR.PATCH, got ${RELEASE_TAG}."
+            exit 1
+          fi
+
+          default_branch=$(gh api "/repos/${GITHUB_REPOSITORY}" --jq '.default_branch')
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            if [[ "${REQUEST_REF_TYPE}" == "branch" ]]; then
+              if [[ "${REQUEST_REF_NAME}" != "${default_branch}" ]]; then
+                echo "::error::Manual recovery must use ${default_branch} or ${RELEASE_TAG}."
+                exit 1
+              fi
+            elif [[ "${REQUEST_REF_TYPE}" == "tag" ]]; then
+              if [[ "${REQUEST_REF_NAME}" != "${RELEASE_TAG}" ]]; then
+                echo "::error::Dispatch tag ${REQUEST_REF_NAME} does not match ${RELEASE_TAG}."
+                exit 1
+              fi
+            else
+              echo "::error::Unsupported workflow dispatch ref type ${REQUEST_REF_TYPE}."
+              exit 1
+            fi
+          fi
+
+          main_sha=$(gh api "/repos/${GITHUB_REPOSITORY}/git/ref/heads/${default_branch}" --jq '.object.sha')
+          matching_refs=$(gh api "/repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${RELEASE_TAG}")
+          ref_count=$(jq --arg ref "refs/tags/${RELEASE_TAG}" '[.[] | select(.ref == $ref)] | length' <<< "${matching_refs}")
+          if [[ "${ref_count}" -ne 1 ]]; then
+            echo "::error::Expected exactly one tag named ${RELEASE_TAG}."
+            exit 1
+          fi
+
+          ref_type=$(jq -r --arg ref "refs/tags/${RELEASE_TAG}" \
+            '.[] | select(.ref == $ref) | .object.type' <<< "${matching_refs}")
+          source_sha=$(jq -r --arg ref "refs/tags/${RELEASE_TAG}" \
+            '.[] | select(.ref == $ref) | .object.sha' <<< "${matching_refs}")
+          if [[ "${ref_type}" == "tag" ]]; then
+            tag_object=$(gh api "/repos/${GITHUB_REPOSITORY}/git/tags/${source_sha}")
+            ref_type=$(jq -r '.object.type' <<< "${tag_object}")
+            source_sha=$(jq -r '.object.sha' <<< "${tag_object}")
+          fi
+          if [[ "${ref_type}" != "commit" ]]; then
+            echo "::error::Tag ${RELEASE_TAG} does not resolve directly to a commit."
+            exit 1
+          fi
+
+          comparison=$(gh api "/repos/${GITHUB_REPOSITORY}/compare/${source_sha}...${main_sha}" --jq '.status')
+          if [[ "${comparison}" != "ahead" && "${comparison}" != "identical" ]]; then
+            echo "::error::Tag ${RELEASE_TAG} is not on ${default_branch}."
+            exit 1
+          fi
+
+          xcconfig=$(gh api \
+            "/repos/${GITHUB_REPOSITORY}/contents/Configuration/Shared.xcconfig?ref=${RELEASE_TAG}" \
+            --jq '.content' | tr -d '\n' | base64 --decode)
+          version=$(awk -F '=' '
+            /^[[:space:]]*MARKETING_VERSION[[:space:]]*=/ {
+              value = $2
+              sub(/\/\/.*/, "", value)
+              gsub(/[[:space:]]/, "", value)
+              print value
+              count++
+            }
+            END { if (count != 1) exit 1 }
+          ' <<< "${xcconfig}")
+          if [[ "${RELEASE_TAG}" != "v${version}" ]]; then
+            echo "::error::Tag ${RELEASE_TAG} does not match MARKETING_VERSION ${version}."
+            exit 1
+          fi
+
+          echo "source_sha=${source_sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create or recover GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ steps.release.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --latest
+            echo "GitHub Release ${RELEASE_TAG} already exists; marked it as latest."
+          else
+            gh release create "${RELEASE_TAG}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --verify-tag \
+              --target "${SOURCE_SHA}" \
+              --title "${RELEASE_TAG}" \
+              --generate-notes \
+              --latest
+            echo "Created GitHub Release ${RELEASE_TAG}."
+          fi
+
+          release_url=$(gh release view "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --json url \
+            --jq '.url')
+          {
+            echo "### GitHub Release"
+            echo
+            echo "Published [${RELEASE_TAG}](${release_url}) from \`${SOURCE_SHA}\`."
+          } >> "${GITHUB_STEP_SUMMARY}"
