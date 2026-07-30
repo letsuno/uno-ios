@@ -4,13 +4,13 @@ SCHEME := UnoClient
 BUILD_CONFIGURATION ?= Release
 BUILD_DESTINATION ?= generic/platform=iOS
 DERIVED_DATA_PATH ?= $(CURDIR)/DerivedData
-EXPECTED_MARKETING_VERSION ?= 0.1.0
 TEST_CONFIGURATION ?= Debug
 TEST_DESTINATION ?= platform=iOS Simulator,name=iPhone 17 Pro
+VERSION_CONFIGURATION := Configuration/Shared.xcconfig
 
 RESULT_BUNDLE_ARGUMENT = $(if $(RESULT_BUNDLE_PATH),-resultBundlePath "$(RESULT_BUNDLE_PATH)")
 
-.PHONY: analyze build format-check project-check quality show-settings test
+.PHONY: analyze build format-check project-check quality release-version show-settings test
 
 quality: format-check project-check
 
@@ -35,8 +35,24 @@ project-check:
 		-destination '$(BUILD_DESTINATION)' 2>/dev/null)"; \
 	marketing_version="$$(printf '%s\n' "$$settings" | awk '/^[[:space:]]+MARKETING_VERSION = / { print $$3; exit }')"; \
 	swift_version="$$(printf '%s\n' "$$settings" | awk '/^[[:space:]]+SWIFT_VERSION = / { print $$3; exit }')"; \
-	test "$$marketing_version" = "$(EXPECTED_MARKETING_VERSION)"; \
+	configured_version="$$( $(MAKE) --no-print-directory release-version )"; \
+	test "$$marketing_version" = "$$configured_version"; \
 	test "$$swift_version" = "6"
+
+release-version:
+	@set -e; \
+	version="$$(awk -F '=' ' \
+		/^[[:space:]]*MARKETING_VERSION[[:space:]]*=/ { \
+			value = $$2; \
+			sub(/\/\/.*/, "", value); \
+			gsub(/[[:space:]]/, "", value); \
+			print value; \
+			count++; \
+		} \
+		END { if (count != 1) exit 1 } \
+	' "$(VERSION_CONFIGURATION)")"; \
+	printf '%s\n' "$$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; \
+	printf '%s\n' "$$version"
 
 show-settings:
 	xcodebuild -showBuildSettings \
