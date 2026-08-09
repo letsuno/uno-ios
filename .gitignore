@@ -11,6 +11,7 @@ xcuserdata/
 
 ## Build products
 DerivedData/
+build/
 *.xcresult
 
 ## Obj-C/Swift specific

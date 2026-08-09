@@ -1,0 +1,337 @@
+name: Upload iOS to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: main or an existing vMAJOR.MINOR.PATCH tag on main
+        required: true
+        default: main
+        type: string
+      build_number:
+        description: Optional positive integer for CFBundleVersion
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+env:
+  BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
+  # 1Password item references. Update these when the vault layout changes.
+  OP_CERTIFICATE: op://Letsuno CI/Apple Distribution/Cert_Ethan.p12
+  OP_CERTIFICATE_PASSWORD: op://Letsuno CI/Apple Distribution/password
+  OP_PROFILE: op://Letsuno CI/UnoClient App Store Profile/UnoClient.mobileprovision
+  OP_ASC_KEY: op://Letsuno CI/App Store Connect/AuthKey.p8
+  OP_ASC_KEY_ID: op://Letsuno CI/App Store Connect/key_id
+  OP_ASC_ISSUER_ID: op://Letsuno CI/App Store Connect/issuer_id
+
+jobs:
+  upload:
+    name: Build and upload
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: testflight
+    steps:
+      - name: Check out release tooling
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          path: .release-tools
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Check out release source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          path: source
+          persist-credentials: false
+          ref: ${{ inputs.release_ref }}
+
+      - name: Show runner context
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install 1Password CLI
+        uses: 1password/install-cli-action@1a3160d5e9de1ae0803eaa08a88746f5ae3daa50 # v4.1.0
+
+      - name: Validate release source
+        shell: bash
+        working-directory: source
+        env:
+          RELEASE_REF: ${{ inputs.release_ref }}
+        run: |
+          set -euo pipefail
+
+          source_sha=$(git rev-parse 'HEAD^{commit}')
+          main_sha=$(git rev-parse 'refs/remotes/origin/main^{commit}')
+
+          if [[ "${RELEASE_REF}" == "main" ]]; then
+            if [[ "${source_sha}" != "${main_sha}" ]]; then
+              echo "::error::Checked-out main is not the current origin/main commit."
+              exit 1
+            fi
+          elif [[ "${RELEASE_REF}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            tag_ref="refs/tags/${RELEASE_REF}"
+            if ! git show-ref --verify --quiet "${tag_ref}"; then
+              echo "::error::Release tag ${RELEASE_REF} does not exist."
+              exit 1
+            fi
+            tag_sha=$(git rev-parse "${tag_ref}^{commit}")
+            if [[ "${source_sha}" != "${tag_sha}" ]]; then
+              echo "::error::Checkout did not resolve to release tag ${RELEASE_REF}."
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "${source_sha}" "${main_sha}"; then
+              echo "::error::Release tag ${RELEASE_REF} is not on main."
+              exit 1
+            fi
+
+            configured_version=$(make \
+              -f "${GITHUB_WORKSPACE}/.release-tools/Makefile" \
+              release-version)
+            if [[ "${RELEASE_REF}" != "v${configured_version}" ]]; then
+              echo "::error::Tag ${RELEASE_REF} does not match MARKETING_VERSION ${configured_version}."
+              exit 1
+            fi
+          else
+            echo "::error::release_ref must be main or vMAJOR.MINOR.PATCH."
+            exit 1
+          fi
+
+          echo "SOURCE_SHA=${source_sha}" >> "${GITHUB_ENV}"
+
+      - name: Resolve app settings
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+
+          if [[ ! "${BUILD_NUMBER}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Build number must be a positive integer."
+            exit 1
+          fi
+
+          settings=$(make \
+            -f "${GITHUB_WORKSPACE}/.release-tools/Makefile" \
+            show-settings 2>/dev/null)
+          bundle_id=$(awk -F ' = ' \
+            '/^[[:space:]]+PRODUCT_BUNDLE_IDENTIFIER = / { print $2; exit }' \
+            <<< "${settings}")
+          marketing_version=$(awk -F ' = ' \
+            '/^[[:space:]]+MARKETING_VERSION = / { print $2; exit }' \
+            <<< "${settings}")
+
+          if [[ -z "${bundle_id}" || -z "${marketing_version}" ]]; then
+            echo "::error::Could not resolve the app bundle identifier and version."
+            exit 1
+          fi
+
+          echo "IOS_BUNDLE_ID=${bundle_id}" >> "${GITHUB_ENV}"
+          echo "MARKETING_VERSION=${marketing_version}" >> "${GITHUB_ENV}"
+
+      - name: Install signing certificate and profile
+        shell: bash
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${OP_SERVICE_ACCOUNT_TOKEN}" ]]; then
+            echo "::error::Actions secret OP_SERVICE_ACCOUNT_TOKEN is not configured."
+            exit 1
+          fi
+
+          certificate_path="${RUNNER_TEMP}/distribution.p12"
+          profile_path="${RUNNER_TEMP}/UnoClient.mobileprovision"
+          profile_plist="${RUNNER_TEMP}/profile.plist"
+          keychain_path="${RUNNER_TEMP}/app-signing.keychain-db"
+          keychain_password=$(openssl rand -hex 32)
+
+          op read "${OP_CERTIFICATE}" --out-file "${certificate_path}"
+          op read "${OP_PROFILE}" --out-file "${profile_path}"
+          certificate_password=$(op read "${OP_CERTIFICATE_PASSWORD}")
+          echo "::add-mask::${certificate_password}"
+
+          security create-keychain -p "${keychain_password}" "${keychain_path}"
+          security set-keychain-settings -lut 21600 "${keychain_path}"
+          security unlock-keychain -p "${keychain_password}" "${keychain_path}"
+          security import "${certificate_path}" \
+            -P "${certificate_password}" \
+            -t cert \
+            -f pkcs12 \
+            -k "${keychain_path}" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "${keychain_password}" \
+            "${keychain_path}"
+          security list-keychains \
+            -d user \
+            -s "${keychain_path}" "${HOME}/Library/Keychains/login.keychain-db"
+
+          security find-identity -v -p codesigning "${keychain_path}"
+          security cms -D -i "${profile_path}" > "${profile_plist}"
+
+          profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "${profile_plist}")
+          profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "${profile_plist}")
+          profile_team_id=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "${profile_plist}")
+          profile_app_id=$(/usr/libexec/PlistBuddy \
+            -c "Print :Entitlements:application-identifier" \
+            "${profile_plist}")
+
+          if [[ "${profile_app_id#*.}" != "${IOS_BUNDLE_ID}" ]]; then
+            echo "::error::Provisioning profile is for ${profile_app_id#*.}, not ${IOS_BUNDLE_ID}."
+            exit 1
+          fi
+          if /usr/libexec/PlistBuddy \
+            -c "Print :ProvisionedDevices" \
+            "${profile_plist}" >/dev/null 2>&1; then
+            echo "::error::Provisioning profile is for development or ad hoc distribution."
+            exit 1
+          fi
+          if /usr/libexec/PlistBuddy \
+            -c "Print :ProvisionsAllDevices" \
+            "${profile_plist}" >/dev/null 2>&1; then
+            echo "::error::Provisioning profile is for enterprise distribution."
+            exit 1
+          fi
+
+          profiles_directory="${HOME}/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "${profiles_directory}"
+          cp "${profile_path}" "${profiles_directory}/${profile_uuid}.mobileprovision"
+
+          echo "PROFILE_UUID=${profile_uuid}" >> "${GITHUB_ENV}"
+          echo "PROFILE_NAME=${profile_name}" >> "${GITHUB_ENV}"
+          echo "APPLE_TEAM_ID=${profile_team_id}" >> "${GITHUB_ENV}"
+
+      - name: Archive iOS app
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+
+          make -f "${GITHUB_WORKSPACE}/.release-tools/Makefile" archive \
+            DERIVED_DATA_PATH="${RUNNER_TEMP}/DerivedData" \
+            ARCHIVE_PATH="${RUNNER_TEMP}/UnoClient.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="${APPLE_TEAM_ID}" \
+            PROVISIONING_PROFILE_SPECIFIER="${PROFILE_NAME}" \
+            CURRENT_PROJECT_VERSION="${BUILD_NUMBER}"
+
+      - name: Export IPA
+        id: export
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+
+          options_plist="${RUNNER_TEMP}/ExportOptions.plist"
+          jq -n \
+            --arg team "${APPLE_TEAM_ID}" \
+            --arg bundle "${IOS_BUNDLE_ID}" \
+            --arg profile "${PROFILE_NAME}" \
+            '{
+              method: "app-store-connect",
+              destination: "export",
+              signingStyle: "manual",
+              teamID: $team,
+              signingCertificate: "Apple Distribution",
+              provisioningProfiles: { ($bundle): $profile },
+              stripSwiftSymbols: true,
+              uploadSymbols: true,
+              manageAppVersionAndBuildNumber: false
+            }' | plutil -convert xml1 -o "${options_plist}" -
+
+          plutil -lint "${options_plist}"
+          plutil -p "${options_plist}"
+
+          make -f "${GITHUB_WORKSPACE}/.release-tools/Makefile" export \
+            ARCHIVE_PATH="${RUNNER_TEMP}/UnoClient.xcarchive" \
+            EXPORT_PATH="${RUNNER_TEMP}/export" \
+            EXPORT_OPTIONS_PLIST="${options_plist}"
+
+          ipa_path=$(find "${RUNNER_TEMP}/export" \
+            -maxdepth 1 \
+            -type f \
+            -name '*.ipa' \
+            -print \
+            -quit)
+          if [[ -z "${ipa_path}" ]]; then
+            echo "::error::Archive export did not produce an IPA."
+            find "${RUNNER_TEMP}/export" -maxdepth 2 -print
+            exit 1
+          fi
+
+          echo "ipa_path=${ipa_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate and upload to TestFlight
+        shell: bash
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          IPA_PATH: ${{ steps.export.outputs.ipa_path }}
+        run: |
+          set -euo pipefail
+
+          key_id=$(op read "${OP_ASC_KEY_ID}")
+          issuer_id=$(op read "${OP_ASC_ISSUER_ID}")
+          echo "::add-mask::${key_id}"
+          echo "::add-mask::${issuer_id}"
+          echo "ASC_KEY_ID=${key_id}" >> "${GITHUB_ENV}"
+
+          key_directory="${HOME}/.appstoreconnect/private_keys"
+          mkdir -p "${key_directory}"
+          op read "${OP_ASC_KEY}" --out-file "${key_directory}/AuthKey_${key_id}.p8"
+          chmod 600 "${key_directory}/AuthKey_${key_id}.p8"
+
+          xcrun altool \
+            --validate-app \
+            --file "${IPA_PATH}" \
+            --type ios \
+            --api-key "${key_id}" \
+            --api-issuer "${issuer_id}" \
+            --output-format json
+
+          xcrun altool \
+            --upload-app \
+            --file "${IPA_PATH}" \
+            --type ios \
+            --api-key "${key_id}" \
+            --api-issuer "${issuer_id}" \
+            --output-format json
+
+          {
+            echo "### TestFlight upload"
+            echo
+            echo "Uploaded ${MARKETING_VERSION} (${BUILD_NUMBER}) from ${SOURCE_SHA} to App Store Connect."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Clean up publishing credentials
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          security delete-keychain \
+            "${RUNNER_TEMP}/app-signing.keychain-db" 2>/dev/null || true
+
+          if [[ -n "${PROFILE_UUID:-}" ]]; then
+            rm -f \
+              "${HOME}/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+          fi
+
+          if [[ -n "${ASC_KEY_ID:-}" ]]; then
+            rm -f "${HOME}/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          fi
+
+          rm -f \
+            "${RUNNER_TEMP}/distribution.p12" \
+            "${RUNNER_TEMP}/UnoClient.mobileprovision" \
+            "${RUNNER_TEMP}/profile.plist"
