@@ -5,6 +5,7 @@
 # macOS / editors
 .DS_Store
 .idea/
+/RELEASING.md
 
 ## User settings
 xcuserdata/
