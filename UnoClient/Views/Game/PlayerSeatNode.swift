@@ -54,7 +54,7 @@ struct PlayerSeatNode: View {
                 TurnPulseGlow(size: 42)
             }
             AvatarView(
-                url: game.session.endpoint?.resolveAvatar(player.avatarUrl),
+                url: game.session.avatarURL(playerId: player.id, serverValue: player.avatarUrl),
                 name: player.name,
                 size: 38
             )

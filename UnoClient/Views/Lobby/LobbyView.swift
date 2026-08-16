@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Post-login home screen: player header, room creation / joining, live games list.
 struct LobbyView: View {
@@ -7,41 +6,42 @@ struct LobbyView: View {
 
     @State private var joinCode = ""
     @State private var showCreateSheet = false
+    @State private var showProfileSheet = false
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    Text(session.serverInfo?.name ?? "Lobby")
-                        .font(.largeTitle.weight(.bold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 4)
-                    HStack(alignment: .top, spacing: 24) {
-                        VStack(spacing: 16) {
-                            header
-                            actions
-                        }
-                        .frame(maxWidth: .infinity)
-                        liveGames
-                            .frame(maxWidth: .infinity)
+            // The page itself does not scroll: the account column is fixed and only the
+            // live-games list, whose length is unbounded, scrolls inside its own column.
+            VStack(alignment: .leading, spacing: 12) {
+                Text(session.serverInfo?.name ?? "Lobby")
+                    .font(.title2.weight(.bold))
+                    .lineLimit(1)
+                    .padding(.trailing, 44)
+
+                HStack(alignment: .top, spacing: 20) {
+                    VStack(spacing: 14) {
+                        header
+                        actions
+                        Spacer(minLength: 0)
                     }
+                    .frame(maxWidth: .infinity)
+                    liveGames
+                        .frame(maxWidth: .infinity)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
             }
+            .frame(maxWidth: UnoLayout.contentWidth)
+            .screenInsets()
+            .frame(maxWidth: .infinity)
             .scrollDismissesKeyboard(.interactively)
-            .background(Color.clear)
+            .unoBackdrop()
             .overlay(alignment: .topTrailing) {
                 Menu {
-                    if session.authConfig?.passkeyEnabled == true {
-                        Button {
-                            Task { await session.registerPasskey(name: UIDevice.current.name) }
-                        } label: {
-                            Label("Create Passkey", systemImage: "person.badge.key.fill")
-                        }
-                        .disabled(session.isBusy)
-                        Divider()
+                    Button {
+                        showProfileSheet = true
+                    } label: {
+                        Label("Profile", systemImage: "person.crop.circle")
                     }
+                    Divider()
                     Button(role: .destructive) {
                         session.logout()
                     } label: {
@@ -57,12 +57,14 @@ struct LobbyView: View {
                         .font(.title3)
                 }
                 .buttonStyle(.glass)
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
+                .screenInsets()
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showCreateSheet) {
                 CreateRoomSheet()
+            }
+            .sheet(isPresented: $showProfileSheet) {
+                ProfileView()
             }
         }
     }
@@ -89,7 +91,8 @@ struct LobbyView: View {
                         }
                     }
                     Spacer(minLength: 0)
-                    latencyChip
+                    LatencyLabel(milliseconds: session.latencyMs)
+                        .glassChip(horizontal: 9, vertical: 5)
                 }
                 if let info = session.serverInfo {
                     HStack(spacing: 14) {
@@ -101,25 +104,6 @@ struct LobbyView: View {
                 }
             }
         }
-    }
-
-    private var latencyChip: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(latencyColor)
-                .frame(width: 7, height: 7)
-            Text(session.latencyMs.map { "\($0) ms" } ?? "-- ms")
-                .font(.caption2.monospacedDigit().weight(.medium))
-                .foregroundStyle(.secondary)
-        }
-        .glassChip(horizontal: 9, vertical: 5)
-    }
-
-    private var latencyColor: Color {
-        guard let ms = session.latencyMs else { return .gray }
-        if ms < 50 { return .green }
-        if ms <= 150 { return .yellow }
-        return .red
     }
 
     // MARK: - Primary actions
@@ -135,6 +119,8 @@ struct LobbyView: View {
                     .padding(.vertical, 8)
             }
             .buttonStyle(.glassProminent)
+            .actionWidth()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             HStack(spacing: 10) {
                 TextField("Room code or link", text: $joinCode)
@@ -167,8 +153,8 @@ struct LobbyView: View {
     private var liveGames: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Live games")
-                .font(.headline)
-                .padding(.horizontal, 4)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
 
             if session.lobbyRooms.isEmpty {
                 GlassPanel {
@@ -178,10 +164,16 @@ struct LobbyView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             } else {
-                ForEach(session.lobbyRooms) { info in
-                    LiveGameCard(info: info)
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(session.lobbyRooms) { info in
+                            LiveGameCard(info: info)
+                        }
+                    }
                 }
+                .scrollBounceBehavior(.basedOnSize)
             }
+            Spacer(minLength: 0)
         }
     }
 }

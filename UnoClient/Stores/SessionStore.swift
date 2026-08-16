@@ -253,6 +253,28 @@ final class SessionStore {
         }
     }
 
+    /// Resolves the avatar for a player as seen in a room, seat grid or scoreboard.
+    ///
+    /// The server stamps those rows from the JWT, and neither a profile edit nor an
+    /// avatar upload reissues it — so our own row carries whatever was true at sign-in
+    /// (nothing at all, for an account that had no avatar then). For ourselves the
+    /// freshly-read `/auth/me` value wins; other players can only be as current as
+    /// their own token, which is the server's behaviour to fix, not ours.
+    func avatarURL(playerId: String, serverValue: String?) -> URL? {
+        guard let endpoint else { return nil }
+        let resolved = playerId == user?.id ? (user?.avatarUrl ?? serverValue) : serverValue
+        return endpoint.resolveAvatar(resolved)
+    }
+
+    /// Profile edits change database rows, not the JWT, so the copy that arrived with
+    /// the token goes stale. Re-read `/auth/me` to catch up.
+    func refreshUser() async {
+        guard let endpoint, let token else { return }
+        if let refreshed = try? await RestClient(endpoint: endpoint).me(token: token) {
+            user = refreshed
+        }
+    }
+
     private func authenticate(_ perform: (RestClient) async throws -> AuthResponse) async {
         guard let endpoint else { return }
         isBusy = true
