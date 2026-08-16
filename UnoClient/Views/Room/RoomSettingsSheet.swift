@@ -25,6 +25,7 @@ struct RoomSettingsSheet: View {
                             .padding(.bottom, 8)
                     }
                 }
+                .unoBackdrop()
                 .navigationTitle("Room Settings")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

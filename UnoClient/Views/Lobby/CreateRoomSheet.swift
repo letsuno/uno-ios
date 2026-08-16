@@ -10,6 +10,7 @@ struct CreateRoomSheet: View {
     var body: some View {
         NavigationStack {
             RoomSettingsEditor(settings: $settings, isEditable: true)
+                .unoBackdrop()
                 .navigationTitle("New Room")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
