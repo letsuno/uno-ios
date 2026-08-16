@@ -25,8 +25,8 @@ env:
   # 1Password item references. Update these when the vault layout changes.
   OP_CERTIFICATE: op://Letsuno CI/Apple Distribution/Cert_Ethan.p12
   OP_CERTIFICATE_PASSWORD: op://Letsuno CI/Apple Distribution/password
-  OP_PROFILE: op://Letsuno CI/UnoClient App Store Profile/UnoClient.mobileprovision
-  OP_ASC_KEY: op://Letsuno CI/App Store Connect/AuthKey.p8
+  OP_PROFILE: op://Letsuno CI/Provisioning Profile/Letsuno.mobileprovision
+  OP_ASC_KEY: op://Letsuno CI/App Store Connect/AuthKey_73V7PMGVS5.p8
   OP_ASC_KEY_ID: op://Letsuno CI/App Store Connect/key_id
   OP_ASC_ISSUER_ID: op://Letsuno CI/App Store Connect/issuer_id
 
