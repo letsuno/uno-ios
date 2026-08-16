@@ -7,6 +7,7 @@ struct RoomView: View {
 
     @State private var showSettingsSheet = false
     @State private var showLeaveDialog = false
+    @State private var aiEngineTarget: AiEnginePicker.Target?
 
     var body: some View {
         NavigationStack {
@@ -31,10 +32,10 @@ struct RoomView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .padding(20)
-            // Landscape home-indicator inflates the bottom safe area; extend into
-            // it so the visual bottom margin equals the (≈0-inset) top margin.
-            .ignoresSafeArea(.container, edges: .bottom)
+            .frame(maxWidth: UnoLayout.contentWidth)
+            .screenInsets()
+            .frame(maxWidth: .infinity)
+            .unoBackdrop()
             .overlay(alignment: .topTrailing) {
                 Button {
                     showSettingsSheet = true
@@ -43,11 +44,16 @@ struct RoomView: View {
                         .font(.title3)
                 }
                 .buttonStyle(.glass)
-                .padding(.trailing, 20)
+                // Matches `screenInsets` so the button lines up with the content
+                // it floats over instead of hugging the display edge.
+                .screenInsets()
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showSettingsSheet) {
                 RoomSettingsSheet(room: room)
+            }
+            .sheet(item: $aiEngineTarget) { target in
+                AiEnginePicker(room: room, target: target)
             }
             .confirmationDialog("Leave this room?", isPresented: $showLeaveDialog, titleVisibility: .visible) {
                 Button("Leave", role: .destructive) {
@@ -111,9 +117,13 @@ struct RoomView: View {
         }
     }
 
+    /// A self-hosted server is worth spelling out so the invite is clickable; the default
+    /// server's address stays out of the UI, so its invite carries the room code alone.
     private var shareText: String {
-        let base = room.session.endpoint?.baseURL.absoluteString ?? ""
-        return "Join my UNO room \(room.roomCode): \(base)/room/\(room.roomCode)"
+        guard let endpoint = room.session.endpoint, !endpoint.isDefault else {
+            return "Join my UNO room \(room.roomCode)"
+        }
+        return "Join my UNO room \(room.roomCode): \(endpoint.baseURL.absoluteString)/room/\(room.roomCode)"
     }
 
     // MARK: - Settings summary
@@ -199,17 +209,19 @@ struct RoomView: View {
                     Button {
                         Task { await room.startGame() }
                     } label: {
-                        barLabel("Start game", "play.fill")
+                        barLabel("Start", "play.fill")
                     }
                     .buttonStyle(.glassProminent)
                     .disabled(!room.canStartGame)
 
                     Menu {
-                        ForEach(BotDifficulty.allCases, id: \.self) { difficulty in
+                        ForEach(BotDifficulty.ruleCases, id: \.self) { difficulty in
                             Button(difficulty.localizedName) {
                                 Task { await room.addBot(difficulty: difficulty, seatIndex: nil) }
                             }
                         }
+                        Divider()
+                        Button("AI engine…") { aiEngineTarget = .add(seatIndex: nil) }
                     } label: {
                         barLabel("Add bot", "cpu")
                     }
@@ -226,10 +238,13 @@ struct RoomView: View {
         .padding(.bottom, 4)
     }
 
-    /// Uniform control-bar button label: equal width per row, equal height.
+    /// Uniform control-bar button label: equal width per row, equal height. Three
+    /// buttons share a half-screen column, so the label has to shrink rather than wrap.
     private func barLabel(_ title: String, _ icon: String) -> some View {
         Label(title, systemImage: icon)
             .font(.subheadline.weight(.semibold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
     }
