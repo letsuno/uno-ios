@@ -47,7 +47,7 @@ struct GameView: View {
         // autopilot toggles (no seat recompute) while leaving it in the upper region
         // rather than centered over the whole screen.
         let auto = game.me?.autopilot == true
-        let isPlayer = !game.isSpectator && game.me != nil
+        let isPlayer = game.isSeatedPlayer
         return VStack(spacing: 0) {
             GameHUDBar(game: game, confirmLeave: $confirmLeave)
             TableView(game: game)

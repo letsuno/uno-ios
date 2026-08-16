@@ -380,8 +380,7 @@ final class SessionStore {
                 if let socket = self.socket,
                     (try? await socket.emitWithAck("ping:latency", [], timeout: 8)) != nil
                 {
-                    let elapsed = ContinuousClock.now - start
-                    self.latencyMs = Int(Double(elapsed.components.attoseconds) / 1e15)
+                    self.latencyMs = (ContinuousClock.now - start).milliseconds
                 }
                 try? await Task.sleep(for: .seconds(30))
             }

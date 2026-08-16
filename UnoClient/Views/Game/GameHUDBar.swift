@@ -108,16 +108,17 @@ struct GameHUDBar: View {
 
     private var menuButton: some View {
         Menu {
-            Button("Autopilot once", systemImage: "wand.and.stars") {
-                Task { await game.autopilotOnce() }
-            }
-            Button(
-                game.me?.autopilot == true ? "Disable autopilot" : "Enable autopilot",
-                systemImage: "cpu"
-            ) {
-                Task { await game.toggleAutopilot() }
-            }
-            if !game.isSpectator {
+            // Autopilot delegates *your* turns, so it only exists for a seated player.
+            if game.isSeatedPlayer {
+                Button("Autopilot once", systemImage: "wand.and.stars") {
+                    Task { await game.autopilotOnce() }
+                }
+                Button(
+                    game.me?.autopilot == true ? "Disable autopilot" : "Enable autopilot",
+                    systemImage: "cpu"
+                ) {
+                    Task { await game.toggleAutopilot() }
+                }
                 Button("Move to spectators", systemImage: "eye") {
                     Task { await game.leaveToSpectate() }
                 }
