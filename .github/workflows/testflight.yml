@@ -25,10 +25,10 @@ env:
   # 1Password item references. Update these when the vault layout changes.
   OP_CERTIFICATE: op://Letsuno CI/Apple Distribution/Cert_Ethan.p12
   OP_CERTIFICATE_PASSWORD: op://Letsuno CI/Apple Distribution/password
-  OP_PROFILE: op://Letsuno CI/Provisioning Profile/Letsuno.mobileprovision
   OP_ASC_KEY: op://Letsuno CI/App Store Connect/AuthKey_73V7PMGVS5.p8
   OP_ASC_KEY_ID: op://Letsuno CI/App Store Connect/key_id
   OP_ASC_ISSUER_ID: op://Letsuno CI/App Store Connect/issuer_id
+  APPLE_TEAM_ID: W65332NA65
 
 jobs:
   upload:
@@ -137,7 +137,7 @@ jobs:
           echo "IOS_BUNDLE_ID=${bundle_id}" >> "${GITHUB_ENV}"
           echo "MARKETING_VERSION=${marketing_version}" >> "${GITHUB_ENV}"
 
-      - name: Install signing certificate and profile
+      - name: Install publishing credentials
         shell: bash
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
@@ -150,15 +150,20 @@ jobs:
           fi
 
           certificate_path="${RUNNER_TEMP}/distribution.p12"
-          profile_path="${RUNNER_TEMP}/UnoClient.mobileprovision"
-          profile_plist="${RUNNER_TEMP}/profile.plist"
+          asc_key_path="${RUNNER_TEMP}/AuthKey.p8"
           keychain_path="${RUNNER_TEMP}/app-signing.keychain-db"
           keychain_password=$(openssl rand -hex 32)
 
           op read "${OP_CERTIFICATE}" --out-file "${certificate_path}"
-          op read "${OP_PROFILE}" --out-file "${profile_path}"
           certificate_password=$(op read "${OP_CERTIFICATE_PASSWORD}")
+          asc_key_id=$(op read "${OP_ASC_KEY_ID}")
+          asc_issuer_id=$(op read "${OP_ASC_ISSUER_ID}")
+          op read "${OP_ASC_KEY}" --out-file "${asc_key_path}"
+          chmod 600 "${asc_key_path}"
+
           echo "::add-mask::${certificate_password}"
+          echo "::add-mask::${asc_key_id}"
+          echo "::add-mask::${asc_issuer_id}"
 
           security create-keychain -p "${keychain_password}" "${keychain_path}"
           security set-keychain-settings -lut 21600 "${keychain_path}"
@@ -179,39 +184,10 @@ jobs:
             -s "${keychain_path}" "${HOME}/Library/Keychains/login.keychain-db"
 
           security find-identity -v -p codesigning "${keychain_path}"
-          security cms -D -i "${profile_path}" > "${profile_plist}"
 
-          profile_uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "${profile_plist}")
-          profile_name=$(/usr/libexec/PlistBuddy -c "Print :Name" "${profile_plist}")
-          profile_team_id=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "${profile_plist}")
-          profile_app_id=$(/usr/libexec/PlistBuddy \
-            -c "Print :Entitlements:application-identifier" \
-            "${profile_plist}")
-
-          if [[ "${profile_app_id#*.}" != "${IOS_BUNDLE_ID}" ]]; then
-            echo "::error::Provisioning profile is for ${profile_app_id#*.}, not ${IOS_BUNDLE_ID}."
-            exit 1
-          fi
-          if /usr/libexec/PlistBuddy \
-            -c "Print :ProvisionedDevices" \
-            "${profile_plist}" >/dev/null 2>&1; then
-            echo "::error::Provisioning profile is for development or ad hoc distribution."
-            exit 1
-          fi
-          if /usr/libexec/PlistBuddy \
-            -c "Print :ProvisionsAllDevices" \
-            "${profile_plist}" >/dev/null 2>&1; then
-            echo "::error::Provisioning profile is for enterprise distribution."
-            exit 1
-          fi
-
-          profiles_directory="${HOME}/Library/MobileDevice/Provisioning Profiles"
-          mkdir -p "${profiles_directory}"
-          cp "${profile_path}" "${profiles_directory}/${profile_uuid}.mobileprovision"
-
-          echo "PROFILE_UUID=${profile_uuid}" >> "${GITHUB_ENV}"
-          echo "PROFILE_NAME=${profile_name}" >> "${GITHUB_ENV}"
-          echo "APPLE_TEAM_ID=${profile_team_id}" >> "${GITHUB_ENV}"
+          echo "ASC_KEY_PATH=${asc_key_path}" >> "${GITHUB_ENV}"
+          echo "ASC_KEY_ID=${asc_key_id}" >> "${GITHUB_ENV}"
+          echo "ASC_ISSUER_ID=${asc_issuer_id}" >> "${GITHUB_ENV}"
 
       - name: Archive iOS app
         shell: bash
@@ -222,11 +198,13 @@ jobs:
           make -f "${GITHUB_WORKSPACE}/.release-tools/Makefile" archive \
             DERIVED_DATA_PATH="${RUNNER_TEMP}/DerivedData" \
             ARCHIVE_PATH="${RUNNER_TEMP}/UnoClient.xcarchive" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
+            CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM="${APPLE_TEAM_ID}" \
-            PROVISIONING_PROFILE_SPECIFIER="${PROFILE_NAME}" \
-            CURRENT_PROJECT_VERSION="${BUILD_NUMBER}"
+            CURRENT_PROJECT_VERSION="${BUILD_NUMBER}" \
+            ALLOW_PROVISIONING_UPDATES=YES \
+            AUTHENTICATION_KEY_PATH="${ASC_KEY_PATH}" \
+            AUTHENTICATION_KEY_ID="${ASC_KEY_ID}" \
+            AUTHENTICATION_KEY_ISSUER_ID="${ASC_ISSUER_ID}"
 
       - name: Export IPA
         id: export
@@ -238,15 +216,11 @@ jobs:
           options_plist="${RUNNER_TEMP}/ExportOptions.plist"
           jq -n \
             --arg team "${APPLE_TEAM_ID}" \
-            --arg bundle "${IOS_BUNDLE_ID}" \
-            --arg profile "${PROFILE_NAME}" \
             '{
               method: "app-store-connect",
               destination: "export",
-              signingStyle: "manual",
+              signingStyle: "automatic",
               teamID: $team,
-              signingCertificate: "Apple Distribution",
-              provisioningProfiles: { ($bundle): $profile },
               stripSwiftSymbols: true,
               uploadSymbols: true,
               manageAppVersionAndBuildNumber: false
@@ -258,7 +232,11 @@ jobs:
           make -f "${GITHUB_WORKSPACE}/.release-tools/Makefile" export \
             ARCHIVE_PATH="${RUNNER_TEMP}/UnoClient.xcarchive" \
             EXPORT_PATH="${RUNNER_TEMP}/export" \
-            EXPORT_OPTIONS_PLIST="${options_plist}"
+            EXPORT_OPTIONS_PLIST="${options_plist}" \
+            ALLOW_PROVISIONING_UPDATES=YES \
+            AUTHENTICATION_KEY_PATH="${ASC_KEY_PATH}" \
+            AUTHENTICATION_KEY_ID="${ASC_KEY_ID}" \
+            AUTHENTICATION_KEY_ISSUER_ID="${ASC_ISSUER_ID}"
 
           ipa_path=$(find "${RUNNER_TEMP}/export" \
             -maxdepth 1 \
@@ -277,36 +255,26 @@ jobs:
       - name: Validate and upload to TestFlight
         shell: bash
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           IPA_PATH: ${{ steps.export.outputs.ipa_path }}
         run: |
           set -euo pipefail
-
-          key_id=$(op read "${OP_ASC_KEY_ID}")
-          issuer_id=$(op read "${OP_ASC_ISSUER_ID}")
-          echo "::add-mask::${key_id}"
-          echo "::add-mask::${issuer_id}"
-          echo "ASC_KEY_ID=${key_id}" >> "${GITHUB_ENV}"
-
-          key_directory="${HOME}/.appstoreconnect/private_keys"
-          mkdir -p "${key_directory}"
-          op read "${OP_ASC_KEY}" --out-file "${key_directory}/AuthKey_${key_id}.p8"
-          chmod 600 "${key_directory}/AuthKey_${key_id}.p8"
 
           xcrun altool \
             --validate-app \
             --file "${IPA_PATH}" \
             --type ios \
-            --api-key "${key_id}" \
-            --api-issuer "${issuer_id}" \
+            --api-key "${ASC_KEY_ID}" \
+            --api-issuer "${ASC_ISSUER_ID}" \
+            --p8-file-path "${ASC_KEY_PATH}" \
             --output-format json
 
           xcrun altool \
             --upload-app \
             --file "${IPA_PATH}" \
             --type ios \
-            --api-key "${key_id}" \
-            --api-issuer "${issuer_id}" \
+            --api-key "${ASC_KEY_ID}" \
+            --api-issuer "${ASC_ISSUER_ID}" \
+            --p8-file-path "${ASC_KEY_PATH}" \
             --output-format json
 
           {
@@ -322,16 +290,6 @@ jobs:
           security delete-keychain \
             "${RUNNER_TEMP}/app-signing.keychain-db" 2>/dev/null || true
 
-          if [[ -n "${PROFILE_UUID:-}" ]]; then
-            rm -f \
-              "${HOME}/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
-          fi
-
-          if [[ -n "${ASC_KEY_ID:-}" ]]; then
-            rm -f "${HOME}/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
-          fi
-
           rm -f \
             "${RUNNER_TEMP}/distribution.p12" \
-            "${RUNNER_TEMP}/UnoClient.mobileprovision" \
-            "${RUNNER_TEMP}/profile.plist"
+            "${RUNNER_TEMP}/AuthKey.p8"
