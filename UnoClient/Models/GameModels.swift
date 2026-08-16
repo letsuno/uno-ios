@@ -18,8 +18,14 @@ enum DrawSide: String, Codable, Sendable {
     case left, right
 }
 
-enum BotDifficulty: String, Codable, CaseIterable, Sendable {
-    case novice, easy, normal, hard
+/// `rl` is not a rung on the rule-bot ladder — it marks a bot driven by an AI engine,
+/// named by `BotConfig.aiProviderId`. It still arrives through the same wire field, so
+/// leaving it out breaks decoding of every seat in a room that has one.
+enum BotDifficulty: String, Codable, Sendable {
+    case novice, easy, normal, hard, rl
+
+    /// The difficulties a rule bot can be set to.
+    static let ruleCases: [BotDifficulty] = [.novice, .easy, .normal, .hard]
 
     var localizedName: String {
         switch self {
@@ -27,6 +33,7 @@ enum BotDifficulty: String, Codable, CaseIterable, Sendable {
         case .easy: return String(localized: "Easy")
         case .normal: return String(localized: "Normal")
         case .hard: return String(localized: "Hard")
+        case .rl: return String(localized: "AI")
         }
     }
 }
@@ -38,6 +45,34 @@ enum BotPersonality: String, Codable, Sendable {
 struct BotConfig: Codable, Equatable, Sendable {
     var difficulty: BotDifficulty
     var personality: BotPersonality?
+    var aiProviderId: String?
+}
+
+/// One entry of `room:list_ai_providers`. The server filters the list by seat count and
+/// house rules, so it is only valid for the intent it was fetched with.
+struct AiProvider: Decodable, Identifiable, Equatable, Sendable {
+    let id: String
+    let displayName: String
+    let fairness: Fairness
+
+    /// How much of the hidden state the engine is allowed to see.
+    enum Fairness: String, Decodable, Sendable {
+        case fair, privileged, cheat
+
+        var localizedName: String {
+            switch self {
+            case .fair: return String(localized: "Fair")
+            case .privileged: return String(localized: "Privileged")
+            case .cheat: return String(localized: "Sees all cards")
+            }
+        }
+    }
+}
+
+/// The provider list is filtered against the resulting player count, which differs
+/// between adding a new bot and re-engining one that is already seated.
+enum AiProviderIntent: String, Sendable {
+    case add, `switch`
 }
 
 /// Wire `GameAction` is a union with per-variant fields; decoded flat and leniently.

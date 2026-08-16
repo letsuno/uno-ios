@@ -137,6 +137,17 @@ final class RoomStore {
         await session.perform("room:add_bot", .object(payload))
     }
 
+    /// An AI bot is added through the same event, but the server rejects the payload
+    /// unless `rl` comes with an engine and the rule difficulties come without one.
+    func addAiBot(providerId: String, seatIndex: Int?) async {
+        var payload: [String: JSONValue] = [
+            "difficulty": .string(BotDifficulty.rl.rawValue),
+            "aiProviderId": .string(providerId),
+        ]
+        if let seatIndex { payload["seatIndex"] = .number(Double(seatIndex)) }
+        await session.perform("room:add_bot", .object(payload))
+    }
+
     func removeBot(botId: String) async {
         await session.perform("room:remove_bot", .object(["botId": .string(botId)]))
     }
@@ -146,6 +157,31 @@ final class RoomStore {
             "room:set_bot_difficulty",
             .object(["botId": .string(botId), "difficulty": .string(difficulty.rawValue)])
         )
+    }
+
+    func setBotAi(botId: String, providerId: String) async {
+        await session.perform(
+            "room:set_bot_ai",
+            .object(["botId": .string(botId), "providerId": .string(providerId)])
+        )
+    }
+
+    /// Fetched per use rather than cached: the server filters by the seat count the
+    /// action would produce, so a stale list stops matching after anyone sits down.
+    func aiProviders(intent: AiProviderIntent) async -> [AiProvider] {
+        do {
+            let ack: AiProviderListAck = try await session.ack(
+                "room:list_ai_providers", .object(["intent": .string(intent.rawValue)])
+            )
+            guard ack.success else {
+                if let error = ack.error { session.showToast(error) }
+                return []
+            }
+            return ack.providers ?? []
+        } catch {
+            session.showToast(error.localizedDescription)
+            return []
+        }
     }
 
     func startGame() async {
@@ -339,6 +375,12 @@ final class RoomStore {
     private struct SpectatorJoinAck: Decodable {
         let success: Bool?
         let queued: Bool?
+        let error: String?
+    }
+
+    private struct AiProviderListAck: Decodable {
+        let success: Bool
+        let providers: [AiProvider]?
         let error: String?
     }
 }

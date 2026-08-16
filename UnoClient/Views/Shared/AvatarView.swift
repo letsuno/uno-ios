@@ -36,14 +36,90 @@ struct AvatarView: View {
         }
     }
 
-    private var initials: String {
-        String(name.trimmingCharacters(in: .whitespaces).prefix(2)).uppercased()
+    private var initials: String { AvatarPalette.initials(name) }
+
+    private var fallbackColor: Color { AvatarPalette.color(for: name) }
+}
+
+/// Stand-in identity for a player with no avatar image. Shared so the circular avatar
+/// and the seat backdrop agree on the same colour for the same person.
+enum AvatarPalette {
+    private static let colors: [Color] = [.blue, .purple, .pink, .orange, .teal, .indigo, .mint]
+
+    static func color(for name: String) -> Color {
+        colors[abs(name.hashValue) % colors.count]
     }
 
-    private var fallbackColor: Color {
-        let palette: [Color] = [.blue, .purple, .pink, .orange, .teal, .indigo, .mint]
-        let index = abs(name.hashValue) % palette.count
-        return palette[index]
+    static func initials(_ name: String) -> String {
+        String(name.trimmingCharacters(in: .whitespaces).prefix(2)).uppercased()
+    }
+}
+
+/// The avatar as a card's backdrop rather than a badge: blurred to stay behind the text
+/// and faded from the top-left corner to the bottom-right so the label side of the card
+/// keeps enough contrast for names and status chips.
+struct AvatarBackdrop: View {
+    let url: URL?
+    let name: String
+
+    @State private var image: UIImage?
+
+    var body: some View {
+        // `Color.clear` takes the host cell's size; a bare `scaledToFill` image inside a
+        // `.background` would size the container to the image and spill past the card.
+        Color.clear
+            .overlay {
+                ZStack {
+                    artwork
+                    // Second copy, blurred, revealed from the top-left corner onward:
+                    // the picture reads sharp where it starts and dissolves into the
+                    // card where the name and chips sit.
+                    artwork
+                        .blur(radius: 14)
+                        .mask(diagonal(from: .clear, to: .white))
+                }
+            }
+            .clipped()
+            .mask(
+                diagonal(
+                    stops: [
+                        .init(color: .white, location: 0),
+                        .init(color: .white.opacity(0.5), location: 0.5),
+                        .init(color: .clear, location: 1),
+                    ]
+                )
+            )
+            .allowsHitTesting(false)
+            .task(id: url) {
+                image = nil
+                guard let url else { return }
+                // A seat card is ~360pt wide at @3x. Decoding smaller and letting
+                // `scaledToFill` stretch it produced visible blocky steps.
+                image = await AvatarImageCache.shared.image(url, pixelSize: 560)
+            }
+    }
+
+    /// No initials here: the nickname sits right on top of this, and a giant repeat of
+    /// its first two letters is noise. A player without a picture just gets their colour.
+    @ViewBuilder
+    private var artwork: some View {
+        if let image {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+        } else {
+            Rectangle()
+                .fill(AvatarPalette.color(for: name).gradient)
+                .opacity(0.4)
+        }
+    }
+
+    private func diagonal(from start: Color, to end: Color) -> LinearGradient {
+        diagonal(stops: [.init(color: start, location: 0), .init(color: end, location: 1)])
+    }
+
+    private func diagonal(stops: [Gradient.Stop]) -> LinearGradient {
+        LinearGradient(stops: stops, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 }
 

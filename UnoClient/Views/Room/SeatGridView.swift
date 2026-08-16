@@ -5,19 +5,27 @@ struct SeatGridView: View {
     let room: RoomStore
 
     @State private var swapTarget: RoomSeatPlayer?
+    @State private var aiEngineTarget: AiEnginePicker.Target?
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 12) {
             ForEach(0..<unoSeatCount, id: \.self) { index in
+                // Taking a seat should read as someone landing in it: the card grows
+                // into place while the dashed placeholder fades out beneath it.
                 if let player = seat(at: index) {
                     occupiedCell(player: player, index: index)
+                        .transition(
+                            .scale(scale: 0.82).combined(with: .opacity)
+                        )
                 } else {
                     emptyCell(index: index)
+                        .transition(.opacity)
                 }
             }
         }
+        .animation(.spring(response: 0.38, dampingFraction: 0.72), value: room.seats)
         .confirmationDialog(
             "Request seat swap?",
             isPresented: Binding(
@@ -32,6 +40,9 @@ struct SeatGridView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .sheet(item: $aiEngineTarget) { target in
+            AiEnginePicker(room: room, target: target)
+        }
     }
 
     private func seat(at index: Int) -> RoomSeatPlayer? {
@@ -44,12 +55,11 @@ struct SeatGridView: View {
         let isMe = player.userId == room.myUserId
         let isRoomOwner = player.userId == room.room?.ownerId
 
-        return VStack(spacing: 8) {
-            AvatarView(
-                url: room.session.endpoint?.resolveAvatar(player.avatarUrl),
-                name: player.nickname,
-                size: 44
-            )
+        // The avatar is the card's backdrop, not a badge on it: the seat grid is the
+        // one place with room for a picture, and dropping the circle buys the label
+        // the whole cell width.
+        return VStack(alignment: .leading, spacing: 6) {
+            Spacer(minLength: 0)
             HStack(spacing: 4) {
                 if isRoomOwner {
                     Image(systemName: "crown.fill")
@@ -59,6 +69,7 @@ struct SeatGridView: View {
                 Text(player.nickname)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             HStack(spacing: 6) {
                 if player.isBot {
@@ -70,18 +81,26 @@ struct SeatGridView: View {
                 }
                 if player.ready {
                     chip(text: "READY", icon: "checkmark", color: .green)
+                        .transition(.scale.combined(with: .opacity))
                 }
                 if !player.connected {
                     Image(systemName: "wifi.slash")
                         .font(.caption2)
                         .foregroundStyle(.orange)
                 }
+                Spacer(minLength: 0)
             }
             .frame(minHeight: 18)
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 8)
-        .frame(maxWidth: .infinity, minHeight: 108)
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 108, alignment: .bottomLeading)
+        .background {
+            AvatarBackdrop(
+                url: room.session.avatarURL(playerId: player.userId, serverValue: player.avatarUrl),
+                name: player.nickname
+            )
+            .clipShape(.rect(cornerRadius: 20))
+        }
         .modifier(SeatGlass(isMine: isMe))
         .opacity(player.connected ? 1 : 0.5)
         .contentShape(.rect(cornerRadius: 20))
@@ -95,7 +114,7 @@ struct SeatGridView: View {
             if room.isOwner {
                 if player.isBot {
                     Menu("Change difficulty") {
-                        ForEach(BotDifficulty.allCases, id: \.self) { difficulty in
+                        ForEach(BotDifficulty.ruleCases, id: \.self) { difficulty in
                             Button(difficulty.localizedName) {
                                 Task {
                                     await room.setBotDifficulty(
@@ -106,6 +125,7 @@ struct SeatGridView: View {
                             }
                         }
                     }
+                    Button("AI engine…") { aiEngineTarget = .change(botId: player.userId) }
                     Button("Remove bot", role: .destructive) {
                         Task { await room.removeBot(botId: player.userId) }
                     }
@@ -124,6 +144,8 @@ struct SeatGridView: View {
     private func chip(text: String, icon: String, color: Color) -> some View {
         Label(text, systemImage: icon)
             .font(.system(size: 9, weight: .bold))
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(color)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
@@ -158,11 +180,13 @@ struct SeatGridView: View {
         .contextMenu {
             if room.isOwner {
                 Menu("Add bot here") {
-                    ForEach(BotDifficulty.allCases, id: \.self) { difficulty in
+                    ForEach(BotDifficulty.ruleCases, id: \.self) { difficulty in
                         Button(difficulty.localizedName) {
                             Task { await room.addBot(difficulty: difficulty, seatIndex: index) }
                         }
                     }
+                    Divider()
+                    Button("AI engine…") { aiEngineTarget = .add(seatIndex: index) }
                 }
             }
         }

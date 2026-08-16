@@ -5,62 +5,87 @@ struct ConnectView: View {
     @Environment(SessionStore.self) private var session
     @State private var address = ""
     @State private var didPrefill = false
+    @State private var isCustomServer = false
+    @State private var probe = ServerProbe()
+    @FocusState private var isAddressFieldFocused: Bool
 
     private var trimmedAddress: String {
         address.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// The default server needs no input, so only the custom branch can be empty.
+    private var connectTarget: String {
+        isCustomServer ? trimmedAddress : ServerEndpoint.defaultAddress
+    }
+
     var body: some View {
-        ScrollView {
-            HStack(alignment: .top, spacing: 32) {
+        // Centred with spacers rather than a `GeometryReader`-driven `minHeight`. The
+        // geometry reader anchored its content to the top-left and reported a size that
+        // is not settled on the first frame, which made this screen enter and leave a
+        // transition from an inconsistent position. Every other screen is a fixed layout
+        // with scrolling confined to the one list that can outgrow it; this matches.
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            HStack(alignment: .center, spacing: 32) {
                 hero
                     .frame(maxWidth: .infinity)
-                VStack(spacing: 20) {
-                    connectPanel
-                    if !session.recentServers.isEmpty {
-                        recentPanel
-                    }
-                    Text("Bare hosts default to https. Plain-http LAN servers are detected automatically.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxWidth: .infinity)
+                connectPanel
+                    .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: 860)
-            .padding(28)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: UnoLayout.contentWidth)
+            .screenInsets()
+            Spacer(minLength: 0)
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             guard !didPrefill else { return }
             didPrefill = true
-            address = session.savedAddress
+            let saved = session.savedAddress
+            guard ServerEndpoint(userInput: saved)?.isDefault != true else { return }
+            address = saved
+            isCustomServer = true
         }
+        .onChange(of: isCustomServer) { _, isCustom in
+            if isCustom {
+                isAddressFieldFocused = true
+            }
+        }
+        .onDisappear { probe.cancelAll() }
     }
 
     // MARK: - Hero
 
     private var hero: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 14) {
             HStack(spacing: 2) {
-                wordmarkLetter("U", color: Color(red: 0.90, green: 0.22, blue: 0.27))
-                wordmarkLetter("N", color: Color(red: 0.98, green: 0.75, blue: 0.14))
-                wordmarkLetter("O", color: Color(red: 0.22, green: 0.70, blue: 0.40))
-                wordmarkLetter("!", color: Color(red: 0.20, green: 0.45, blue: 0.95))
+                ForEach(Self.wordmark, id: \.letter) { card in
+                    wordmarkLetter(card.letter, color: card.color)
+                }
             }
             Text("Online multiplayer client")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-        .padding(.top, 40)
     }
 
+    private static let wordmark: [(letter: String, color: Color)] = [
+        ("U", Color(red: 0.90, green: 0.22, blue: 0.27)),
+        ("N", Color(red: 0.98, green: 0.75, blue: 0.14)),
+        ("O", Color(red: 0.22, green: 0.70, blue: 0.40)),
+        ("!", Color(red: 0.20, green: 0.45, blue: 0.95)),
+    ]
+
+    /// `Text` cannot take `glassEffect` — that API needs a `Shape`. So the glass is a
+    /// tinted slab masked down to the glyph: the letter itself refracts the backdrop
+    /// instead of sitting on a card.
     private func wordmarkLetter(_ letter: String, color: Color) -> some View {
-        Text(letter)
-            .font(.system(size: 72, weight: .black, design: .rounded))
-            .foregroundStyle(color.gradient)
+        let glyph = Text(letter)
+            .font(.system(size: 76, weight: .black, design: .rounded))
+
+        return Color.clear
+            .frame(width: letter == "!" ? 34 : 62, height: 92)
+            .glassEffect(.regular.tint(color.opacity(0.75)), in: .rect)
+            .mask { glyph }
             .shadow(color: color.opacity(0.45), radius: 14, y: 4)
     }
 
@@ -72,39 +97,113 @@ struct ConnectView: View {
                 Label("Server", systemImage: "server.rack")
                     .font(.headline)
 
-                TextField("play.example.com or http://192.168.1.10:3001", text: $address)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-                    .textContentType(.URL)
-                    .submitLabel(.go)
-                    .onSubmit(connect)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 14))
-
-                Button(action: connect) {
-                    HStack(spacing: 8) {
-                        if session.isBusy {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "bolt.horizontal.fill")
-                        }
-                        Text("Connect")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                if isCustomServer {
+                    customServerControls
+                } else {
+                    defaultServerRow
                 }
-                .buttonStyle(.glassProminent)
-                .disabled(trimmedAddress.isEmpty || session.isBusy)
+
+                // Connect and its escape hatch share one row: two capped buttons read as
+                // controls, where one full-width button per line reads as a banner.
+                HStack(spacing: 10) {
+                    Button(action: connect) {
+                        HStack(spacing: 8) {
+                            if session.isBusy {
+                                ProgressView()
+                            } else {
+                                Image(systemName: "bolt.horizontal.fill")
+                            }
+                            Text("Connect")
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(connectTarget.isEmpty || session.isBusy)
+
+                    Button {
+                        withAnimation(.snappy) { isCustomServer.toggle() }
+                    } label: {
+                        Label(
+                            isCustomServer ? "Default" : "Other server",
+                            systemImage: isCustomServer ? "arrow.uturn.backward" : "chevron.down"
+                        )
+                        .font(.subheadline)
+                        .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(session.isBusy)
+                }
+            }
+        }
+    }
+
+    private var defaultServerRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill")
+                .foregroundStyle(.tint)
+            Text("Official server")
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            probeReadout(for: ServerEndpoint.defaultAddress)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Server")
+        .accessibilityValue("Official server")
+        .task { probe.measure(ServerEndpoint.defaultAddress) }
+    }
+
+    /// Liveness for one candidate server, measured before any socket exists.
+    @ViewBuilder
+    private func probeReadout(for address: String) -> some View {
+        switch probe.reading(for: address) {
+        case .reachable(let latencyMs):
+            LatencyLabel(milliseconds: latencyMs)
+        case .unreachable:
+            Label("Offline", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.orange)
+                .labelStyle(.titleAndIcon)
+        case .probing, nil:
+            ProgressView()
+                .controlSize(.mini)
+        }
+    }
+
+    private var customServerControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("play.example.com or http://192.168.1.10:3001", text: $address)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                .textContentType(.URL)
+                .submitLabel(.go)
+                .focused($isAddressFieldFocused)
+                .onSubmit(connect)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .glassEffect(.regular, in: .rect(cornerRadius: 14))
+
+            Text("Bare hosts default to https. Plain-http LAN servers are detected automatically.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if !session.recentServers.isEmpty {
+                recentPanel
             }
         }
     }
 
     private func connect() {
-        let target = trimmedAddress
+        let target = connectTarget
         guard !target.isEmpty, !session.isBusy else { return }
+        isAddressFieldFocused = false
         Task { await session.connect(address: target) }
     }
 
@@ -113,16 +212,22 @@ struct ConnectView: View {
     private var recentPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Recent servers")
-                .font(.headline)
-                .padding(.horizontal, 6)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
 
-            GlassEffectContainer(spacing: 10) {
-                VStack(spacing: 10) {
-                    ForEach(session.recentServers, id: \.self) { server in
-                        recentRow(server)
+            // The only part of this screen whose height is unbounded, so it is the only
+            // part that scrolls.
+            ScrollView {
+                GlassEffectContainer(spacing: 10) {
+                    VStack(spacing: 10) {
+                        ForEach(session.recentServers, id: \.self) { server in
+                            recentRow(server)
+                        }
                     }
                 }
             }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: 160)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -140,12 +245,14 @@ struct ConnectView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 0)
+                    probeReadout(for: server)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(session.isBusy)
+            .task { probe.measure(server) }
 
             Button {
                 session.recentServers = session.recentServers.filter { $0 != server }

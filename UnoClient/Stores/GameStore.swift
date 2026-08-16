@@ -91,6 +91,11 @@ final class GameStore {
 
     var isSpectator: Bool { view?.viewerId == "__spectator__" || room.isSpectator }
 
+    /// Holds a seat in the running game. Autopilot, the action bar and the hand all
+    /// hang off this one predicate — a spectator has no player row server-side, so
+    /// anything gated on it would be rejected anyway.
+    var isSeatedPlayer: Bool { !isSpectator && me != nil }
+
     private func resolveMe(in view: PlayerView) -> PlayerViewPlayer? {
         guard !isSpectator else { return nil }
         return view.players.first { $0.id == view.viewerId }
@@ -334,11 +339,16 @@ final class GameStore {
         await session.perform("game:leave_to_spectate")
     }
 
+    /// Guarded here too, not just in the menu: the server burns the 3s toggle cooldown
+    /// before it checks whether the caller holds a seat, so a spectator's rejected tap
+    /// would lock the toggle for the first seconds after they sit down.
     func toggleAutopilot() async {
+        guard isSeatedPlayer else { return }
         await session.perform("player:toggle-autopilot")
     }
 
     func autopilotOnce() async {
+        guard isSeatedPlayer else { return }
         await session.perform("game:autopilot_once")
     }
 }

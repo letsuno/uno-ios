@@ -8,9 +8,39 @@ TEST_CONFIGURATION ?= Debug
 TEST_DESTINATION ?= platform=iOS Simulator,name=iPhone 17 Pro
 VERSION_CONFIGURATION := Configuration/Shared.xcconfig
 
+ARCHIVE_PATH ?= $(CURDIR)/build/UnoClient.xcarchive
+EXPORT_PATH ?= $(CURDIR)/build/export
+EXPORT_OPTIONS_PLIST ?= $(CURDIR)/build/ExportOptions.plist
+
+# Signing stays unset by default so a local archive keeps the project's automatic
+# signing. Distribution builds pass the identity in from the environment holding
+# the certificate.
+CODE_SIGN_STYLE ?=
+CODE_SIGN_IDENTITY ?=
+DEVELOPMENT_TEAM ?=
+PROVISIONING_PROFILE_SPECIFIER ?=
+CURRENT_PROJECT_VERSION ?=
+ALLOW_PROVISIONING_UPDATES ?=
+AUTHENTICATION_KEY_PATH ?=
+AUTHENTICATION_KEY_ID ?=
+AUTHENTICATION_KEY_ISSUER_ID ?=
+
+ARCHIVE_SETTINGS = \
+	$(if $(CODE_SIGN_STYLE),CODE_SIGN_STYLE="$(CODE_SIGN_STYLE)") \
+	$(if $(CODE_SIGN_IDENTITY),CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)") \
+	$(if $(DEVELOPMENT_TEAM),DEVELOPMENT_TEAM="$(DEVELOPMENT_TEAM)") \
+	$(if $(PROVISIONING_PROFILE_SPECIFIER),PROVISIONING_PROFILE_SPECIFIER="$(PROVISIONING_PROFILE_SPECIFIER)") \
+	$(if $(CURRENT_PROJECT_VERSION),CURRENT_PROJECT_VERSION="$(CURRENT_PROJECT_VERSION)")
+
+PROVISIONING_ARGUMENTS = \
+	$(if $(filter YES,$(ALLOW_PROVISIONING_UPDATES)),-allowProvisioningUpdates) \
+	$(if $(AUTHENTICATION_KEY_PATH),-authenticationKeyPath "$(AUTHENTICATION_KEY_PATH)") \
+	$(if $(AUTHENTICATION_KEY_ID),-authenticationKeyID "$(AUTHENTICATION_KEY_ID)") \
+	$(if $(AUTHENTICATION_KEY_ISSUER_ID),-authenticationKeyIssuerID "$(AUTHENTICATION_KEY_ISSUER_ID)")
+
 RESULT_BUNDLE_ARGUMENT = $(if $(RESULT_BUNDLE_PATH),-resultBundlePath "$(RESULT_BUNDLE_PATH)")
 
-.PHONY: analyze build format-check project-check quality release-version show-settings test
+.PHONY: analyze archive build export format-check ipa project-check quality release-version show-settings test
 
 quality: format-check project-check
 
@@ -78,6 +108,27 @@ analyze:
 		-destination '$(BUILD_DESTINATION)' \
 		-derivedDataPath "$(DERIVED_DATA_PATH)" \
 		CODE_SIGNING_ALLOWED=NO
+
+archive:
+	xcodebuild clean archive \
+		-project "$(PROJECT)" \
+		-scheme "$(SCHEME)" \
+		-configuration "$(BUILD_CONFIGURATION)" \
+		-destination '$(BUILD_DESTINATION)' \
+		-derivedDataPath "$(DERIVED_DATA_PATH)" \
+		-archivePath "$(ARCHIVE_PATH)" \
+		$(PROVISIONING_ARGUMENTS) \
+		$(ARCHIVE_SETTINGS)
+
+export:
+	xcodebuild -exportArchive \
+		-archivePath "$(ARCHIVE_PATH)" \
+		-exportPath "$(EXPORT_PATH)" \
+		-exportOptionsPlist "$(EXPORT_OPTIONS_PLIST)" \
+		$(PROVISIONING_ARGUMENTS)
+
+ipa: archive
+	$(MAKE) export
 
 test:
 	xcodebuild test \

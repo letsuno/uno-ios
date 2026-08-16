@@ -21,17 +21,22 @@ struct LoginView: View {
     var body: some View {
         ScrollView {
             HStack(alignment: .top, spacing: 32) {
+                // The API key panel lives beside the server card rather than under the
+                // credentials form: it is a rarely used alternative, and stacking it on
+                // the right pushed the primary sign-in buttons off a landscape screen.
                 VStack(spacing: 16) {
                     header
                     serverCard
+                    if !isDevMode {
+                        apiKeyPanel
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 VStack(spacing: 20) {
-                    if session.authConfig?.devMode == true {
+                    if isDevMode {
                         devPanel
                     } else {
                         credentialsPanel
-                        apiKeyPanel
                         if session.authConfig?.turnstileSiteKey != nil {
                             turnstileWarning
                         }
@@ -39,12 +44,16 @@ struct LoginView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: 860)
-            .padding(28)
+            .frame(maxWidth: UnoLayout.contentWidth)
+            .screenInsets()
             .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollDismissesKeyboard(.interactively)
+    }
+
+    private var isDevMode: Bool {
+        session.authConfig?.devMode == true
     }
 
     // MARK: - Header
@@ -83,11 +92,16 @@ struct LoginView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Label(session.savedAddress, systemImage: "link")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                // The default server is unambiguous from its name; only a self-hosted
+                // address is worth spelling out, so the user can confirm which box
+                // they reached.
+                if let endpoint = session.endpoint, !endpoint.isDefault {
+                    Label(session.savedAddress, systemImage: "link")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
         }
     }
@@ -290,6 +304,7 @@ struct LoginView: View {
             .padding(.vertical, 6)
         }
         .buttonStyle(.glassProminent)
+        .actionWidth()
         .disabled(!enabled || session.isBusy)
     }
 }

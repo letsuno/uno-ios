@@ -51,7 +51,7 @@ struct ScoreBoardSheet: View {
         HStack(spacing: 10) {
             rankBadge(rank)
             AvatarView(
-                url: game.session.endpoint?.resolveAvatar(player.avatarUrl),
+                url: game.session.avatarURL(playerId: player.id, serverValue: player.avatarUrl),
                 name: player.name,
                 size: 32
             )

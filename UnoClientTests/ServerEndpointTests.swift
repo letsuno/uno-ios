@@ -5,6 +5,29 @@ import Testing
 
 @Suite("Server endpoint")
 struct ServerEndpointTests {
+    @Test("Default server uses the production endpoint")
+    func defaultServer() throws {
+        let endpoint = try #require(ServerEndpoint(userInput: ServerEndpoint.defaultAddress))
+
+        #expect(endpoint.baseURL.absoluteString == "https://uno.aunly.cn")
+        #expect(endpoint.isDefault)
+    }
+
+    @Test(
+        "The default server is recognized from any equivalent spelling",
+        arguments: ["uno.aunly.cn", "uno.aunly.cn/", "https://uno.aunly.cn/"])
+    func recognizesDefault(address: String) throws {
+        let endpoint = try #require(ServerEndpoint(userInput: address))
+
+        #expect(endpoint.isDefault)
+    }
+
+    @Test("Other servers are never mistaken for the default")
+    func nonDefaultServers() throws {
+        #expect(try #require(ServerEndpoint(userInput: "play.example.com")).isDefault == false)
+        #expect(try #require(ServerEndpoint(userInput: "http://localhost:3001")).isDefault == false)
+    }
+
     @Test("Bare public hosts default to HTTPS")
     func publicHostDefaultsToHTTPS() throws {
         let endpoint = try #require(ServerEndpoint(userInput: "play.example.com/"))

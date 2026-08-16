@@ -5,12 +5,14 @@
 # macOS / editors
 .DS_Store
 .idea/
+/RELEASING.md
 
 ## User settings
 xcuserdata/
 
 ## Build products
 DerivedData/
+build/
 *.xcresult
 
 ## Obj-C/Swift specific

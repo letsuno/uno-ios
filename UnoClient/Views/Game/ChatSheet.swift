@@ -29,6 +29,7 @@ struct ChatSheet: View {
             }
             inputBar
         }
+        .unoBackdrop()
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }

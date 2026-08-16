@@ -28,6 +28,14 @@ struct WireEncodingTests {
         let data = try JSONEncoder().encode(value)
         #expect(try JSONDecoder().decode(JSONValue.self, from: data) == value)
     }
+
+    @Test("Latency milliseconds survive the one-second boundary")
+    func durationMilliseconds() {
+        #expect(Duration.milliseconds(42).milliseconds == 42)
+        #expect(Duration.milliseconds(999).milliseconds == 999)
+        #expect(Duration.milliseconds(1450).milliseconds == 1450)
+        #expect(Duration.seconds(8).milliseconds == 8000)
+    }
 }
 
 @Suite("Card rules")
