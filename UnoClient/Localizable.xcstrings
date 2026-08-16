@@ -106,31 +106,31 @@
     "★" : {
 
     },
-    "1 min" : {
+    "1m" : {
 
     },
-    "2 cards" : {
+    "2" : {
 
     },
-    "2 min" : {
+    "2m" : {
 
     },
-    "3 cards" : {
-
-    },
-    "3 min" : {
+    "3" : {
 
     },
     "3+ same numbers in a row: everyone else draws 1" : {
 
     },
-    "4 cards" : {
+    "3m" : {
 
     },
-    "5 min" : {
+    "4" : {
 
     },
-    "6 cards" : {
+    "5m" : {
+
+    },
+    "6" : {
 
     },
     "15" : {
@@ -157,7 +157,25 @@
     "Add bot here" : {
 
     },
-    "Allow spectators" : {
+    "Add passkey" : {
+
+    },
+    "AI" : {
+
+    },
+    "AI engine" : {
+
+    },
+    "AI engine…" : {
+
+    },
+    "API key copied" : {
+
+    },
+    "API keys" : {
+
+    },
+    "At least 8 characters, with letters and digits." : {
 
     },
     "Autopilot" : {
@@ -181,7 +199,7 @@
     "Blind draw" : {
 
     },
-    "Blitz time limit" : {
+    "Blitz limit" : {
 
     },
     "Blue" : {
@@ -208,6 +226,9 @@
     "Cannot win on Skip/Reverse/+2" : {
 
     },
+    "Cards" : {
+
+    },
     "Catch %@!" : {
 
     },
@@ -223,6 +244,9 @@
     "Challenge!" : {
 
     },
+    "Change" : {
+
+    },
     "Change difficulty" : {
 
     },
@@ -236,6 +260,9 @@
 
     },
     "Choose a player to swap hands with" : {
+
+    },
+    "Classic" : {
 
     },
     "Close" : {
@@ -256,6 +283,9 @@
     "Copy" : {
 
     },
+    "Copy %@ now — it is never shown again" : {
+
+    },
     "Could not create room" : {
 
     },
@@ -265,13 +295,13 @@
     "Could not rejoin room" : {
 
     },
+    "Crazy" : {
+
+    },
     "Create" : {
 
     },
     "Create account" : {
-
-    },
-    "Create Passkey" : {
 
     },
     "Create Room" : {
@@ -283,10 +313,19 @@
     "Decline" : {
 
     },
+    "Default" : {
+
+    },
+    "Delete %@" : {
+
+    },
     "Development server — any username signs in." : {
 
     },
     "Disable autopilot" : {
+
+    },
+    "Done" : {
 
     },
     "Double score" : {
@@ -319,7 +358,7 @@
     "End turn" : {
 
     },
-    "Endgame & scoring" : {
+    "Endgame" : {
 
     },
     "Enter" : {
@@ -329,6 +368,9 @@
 
     },
     "Everyone agreed — press again to start" : {
+
+    },
+    "Fair" : {
 
     },
     "Fast mode" : {
@@ -355,6 +397,9 @@
     "Hide hands" : {
 
     },
+    "Identity" : {
+
+    },
     "Illegal play attempts cost a drawn card" : {
 
     },
@@ -371,6 +416,12 @@
 
     },
     "Keep drawing until you can play" : {
+
+    },
+    "Key name must be 1–50 characters" : {
+
+    },
+    "Keys sign in without a password — MCP clients and bots use them." : {
 
     },
     "Kick" : {
@@ -400,9 +451,6 @@
     "Lost connection to server" : {
 
     },
-    "Match" : {
-
-    },
     "Message" : {
 
     },
@@ -430,10 +478,22 @@
     "NEW" : {
 
     },
+    "New key name" : {
+
+    },
+    "New password" : {
+
+    },
     "New Room" : {
 
     },
     "Nickname" : {
+
+    },
+    "Nickname must be 1–20 characters" : {
+
+    },
+    "Nickname needs at least one letter or digit" : {
 
     },
     "No +4 challenges" : {
@@ -442,10 +502,16 @@
     "No action-card finish" : {
 
     },
+    "No AI engine fits this room's player count and house rules." : {
+
+    },
     "No games in progress. Create a room to get one going." : {
 
     },
     "No hints" : {
+
+    },
+    "No passkeys yet. Add one to sign in without a password." : {
 
     },
     "No players" : {
@@ -463,10 +529,22 @@
     "Off" : {
 
     },
+    "Official server" : {
+
+    },
+    "Offline" : {
+
+    },
     "Online multiplayer client" : {
 
     },
     "Only the host can change settings" : {
+
+    },
+    "Other players see your old name and avatar until you sign in again." : {
+
+    },
+    "Other server" : {
 
     },
     "Ownership transfers soon…" : {
@@ -475,16 +553,31 @@
     "Pace" : {
 
     },
+    "Party" : {
+
+    },
     "Pass" : {
 
     },
     "Passkey created" : {
 
     },
+    "Passkeys" : {
+
+    },
     "Password" : {
 
     },
+    "Password must be 8–128 characters" : {
+
+    },
     "Password needs at least 8 characters with letters and digits. Nickname 1–20 characters." : {
+
+    },
+    "Password needs both letters and digits" : {
+
+    },
+    "Password updated" : {
 
     },
     "Pick a swap target" : {
@@ -520,7 +613,13 @@
     "Playing a 7 swaps hands with a chosen player" : {
 
     },
-    "Preset" : {
+    "Privileged" : {
+
+    },
+    "Profile" : {
+
+    },
+    "Profile updated" : {
 
     },
     "Queued for next round" : {
@@ -544,6 +643,9 @@
     "Red" : {
 
     },
+    "Remove" : {
+
+    },
     "Remove %@" : {
 
     },
@@ -551,6 +653,9 @@
 
     },
     "Removed from room" : {
+
+    },
+    "Repeat password" : {
 
     },
     "Request seat swap?" : {
@@ -607,10 +712,22 @@
     "Round points count twice" : {
 
     },
+    "Round trip" : {
+
+    },
+    "Rules" : {
+
+    },
     "Save" : {
 
     },
+    "Save changes" : {
+
+    },
     "Seat %lld" : {
+
+    },
+    "Sees all cards" : {
 
     },
     "Sending too fast" : {
@@ -623,6 +740,9 @@
 
     },
     "Session expired, sign in again" : {
+
+    },
+    "Set password" : {
 
     },
     "Seven swaps hands" : {
@@ -673,9 +793,6 @@
     "SPEC" : {
 
     },
-    "Special cards" : {
-
-    },
     "Spectate" : {
 
     },
@@ -688,13 +805,16 @@
     "Spectator view" : {
 
     },
+    "Spectators" : {
+
+    },
     "Stack +2" : {
 
     },
     "Stack +4" : {
 
     },
-    "Stacking & deflection" : {
+    "Stacking" : {
 
     },
     "Strict UNO call" : {
@@ -712,16 +832,25 @@
     "T%lld" : {
 
     },
-    "Target score" : {
+    "Target" : {
 
     },
     "Team mode" : {
 
     },
+    "That image could not be read" : {
+
+    },
     "The host closed the room" : {
 
     },
+    "The two passwords do not match" : {
+
+    },
     "This server has browser human-verification (Turnstile) enabled — password sign-in may be rejected from a native client." : {
+
+    },
+    "This server runs in development mode — profile changes are disabled." : {
 
     },
     "Throw item" : {
@@ -730,13 +859,10 @@
     "Transfer ownership" : {
 
     },
-    "Turn time limit" : {
+    "Turn time" : {
 
     },
     "UNO" : {
-
-    },
-    "UNO calls" : {
 
     },
     "UNO calls are not announced to others" : {
@@ -752,6 +878,12 @@
 
     },
     "Username" : {
+
+    },
+    "Username may only use letters, digits and underscore" : {
+
+    },
+    "Username must be 3–20 characters" : {
 
     },
     "Waiting for game state…" : {
