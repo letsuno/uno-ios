@@ -58,6 +58,23 @@ struct RestClient: Sendable {
         try await get("/server/info")
     }
 
+    /// Ask a candidate server who it is, retrying its plain-http variant when the user
+    /// typed no scheme: bare-host input defaults to https, but LAN/dev servers speak http.
+    /// Returns the endpoint that actually answered, which may be the insecure one.
+    static func reach(
+        _ endpoint: ServerEndpoint,
+        allowingInsecureFallback: Bool
+    ) async throws -> (endpoint: ServerEndpoint, info: ServerInfo) {
+        do {
+            return (endpoint, try await RestClient(endpoint: endpoint).serverInfo())
+        } catch {
+            guard allowingInsecureFallback, let insecure = endpoint.insecureVariant,
+                let info = try? await RestClient(endpoint: insecure).serverInfo()
+            else { throw error }
+            return (insecure, info)
+        }
+    }
+
     func authConfig() async throws -> AuthConfig {
         try await get("/auth/config")
     }

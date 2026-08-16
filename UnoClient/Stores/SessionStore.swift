@@ -39,13 +39,27 @@ final class SessionStore {
     var isBusy = false
     var toast: ToastMessage?
 
+    /// Credential for authenticated REST calls made outside this store, such as the
+    /// profile screen. Minting and clearing it stays here.
+    var authToken: String? { token }
+
     var savedAddress: String {
-        get { UserDefaults.standard.string(forKey: "serverAddress") ?? "" }
+        get {
+            guard let address = UserDefaults.standard.string(forKey: "serverAddress"),
+                !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return ServerEndpoint.defaultAddress }
+            return address
+        }
         set { UserDefaults.standard.set(newValue, forKey: "serverAddress") }
     }
 
+    /// Custom servers only — the default one has its own entry on the landing screen.
+    /// Filtering on read also purges entries stored before that rule existed.
     var recentServers: [String] {
-        get { UserDefaults.standard.stringArray(forKey: "recentServers") ?? [] }
+        get {
+            (UserDefaults.standard.stringArray(forKey: "recentServers") ?? [])
+                .filter { ServerEndpoint(userInput: $0)?.isDefault == false }
+        }
         set { UserDefaults.standard.set(newValue, forKey: "recentServers") }
     }
 
@@ -88,22 +102,15 @@ final class SessionStore {
             return
         }
 
-        var resolved = candidate
-        var info: ServerInfo
+        let resolved: ServerEndpoint
+        let info: ServerInfo
         do {
-            info = try await RestClient(endpoint: candidate).serverInfo()
+            (resolved, info) = try await RestClient.reach(
+                candidate, allowingInsecureFallback: !address.contains("://")
+            )
         } catch {
-            // Bare-host input defaults to https; LAN/dev servers are often plain http.
-            let hasExplicitScheme = address.contains("://")
-            if !hasExplicitScheme, let insecure = candidate.insecureVariant,
-                let fallback = try? await RestClient(endpoint: insecure).serverInfo()
-            {
-                resolved = insecure
-                info = fallback
-            } else {
-                showToast(String(localized: "Cannot reach server: \(error.localizedDescription)"))
-                return
-            }
+            showToast(String(localized: "Cannot reach server: \(error.localizedDescription)"))
+            return
         }
 
         do {
@@ -112,7 +119,7 @@ final class SessionStore {
             serverInfo = info
             authConfig = config
             savedAddress = address
-            rememberServer(address)
+            rememberServer(address, endpoint: resolved)
         } catch {
             showToast(String(localized: "Server rejected auth config request: \(error.localizedDescription)"))
             return
@@ -133,7 +140,8 @@ final class SessionStore {
         stage = .login
     }
 
-    private func rememberServer(_ address: String) {
+    private func rememberServer(_ address: String, endpoint: ServerEndpoint) {
+        guard !endpoint.isDefault else { return }
         var list = recentServers.filter { $0 != address }
         list.insert(address, at: 0)
         recentServers = Array(list.prefix(8))

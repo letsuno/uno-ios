@@ -3,6 +3,11 @@ import Foundation
 /// A normalized server link. The web client stores a bare authority and derives the
 /// scheme from the page; a native client defaults to https unless the user is explicit.
 struct ServerEndpoint: Equatable, Hashable, Codable, Sendable {
+    /// The bundled public server: always one tap away on the landing screen, and for that
+    /// reason deliberately kept out of the recent-server history.
+    static let `default` = ServerEndpoint(baseURL: URL(string: "https://uno.aunly.cn")!)
+    static var defaultAddress: String { Self.default.baseURL.absoluteString }
+
     let baseURL: URL
 
     init?(userInput: String) {
@@ -28,6 +33,8 @@ struct ServerEndpoint: Equatable, Hashable, Codable, Sendable {
         let port = baseURL.port.map { ":\($0)" } ?? ""
         return "\(baseURL.scheme ?? "https")://\(host)\(port)"
     }
+
+    var isDefault: Bool { storageKey == Self.default.storageKey }
 
     var displayName: String {
         let host = baseURL.host() ?? baseURL.absoluteString

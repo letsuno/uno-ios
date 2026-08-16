@@ -14,7 +14,32 @@ enum UnoPalette {
     static let emerald = Color(red: 0.20, green: 0.80, blue: 0.40)
 }
 
+/// Shared measurements for the landscape-first layout. iPhone is locked to landscape,
+/// so screens are wide and short: content is laid out in columns, and controls are
+/// capped rather than stretched across the full width.
+enum UnoLayout {
+    /// Primary buttons stop growing here — stretched across a landscape screen a button
+    /// reads as a banner, not a control.
+    static let actionWidth: CGFloat = 280
+    /// Widest a screen's content grows before it stops tracking the display.
+    static let contentWidth: CGFloat = 1000
+    /// Narrowest a content column may become before the grid drops to fewer columns.
+    static let columnWidth: CGFloat = 260
+}
+
 extension View {
+    /// Uniform inset for a screen's content, on top of the half safe-area margin
+    /// `RootView` already applies — hence the modest values.
+    func screenInsets() -> some View {
+        padding(.horizontal, 14)
+            .padding(.vertical, 10)
+    }
+
+    /// Caps a primary action so it stays a button on a 1000pt-wide screen.
+    func actionWidth() -> some View {
+        frame(maxWidth: UnoLayout.actionWidth)
+    }
+
     /// Compact "chip" surface: symmetric padding on a regular-glass capsule.
     /// Replaces the padding-plus-`glassEffect(.regular, in: .capsule)` chain that
     /// was hand-repeated across the HUD, lobby and room views.
@@ -22,6 +47,32 @@ extension View {
         padding(.horizontal, horizontal)
             .padding(.vertical, vertical)
             .glassEffect(.regular, in: .capsule)
+    }
+}
+
+/// Round-trip indicator: a health-colored dot next to the measurement. Used both for
+/// the live socket ping in the lobby and for landing-screen server probes.
+struct LatencyLabel: View {
+    let milliseconds: Int?
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(milliseconds.map { "\($0) ms" } ?? "-- ms")
+                .font(.caption2.monospacedDigit().weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Round trip")
+    }
+
+    private var color: Color {
+        guard let milliseconds else { return .gray }
+        if milliseconds < 50 { return .green }
+        if milliseconds <= 150 { return .yellow }
+        return .red
     }
 }
 
@@ -51,6 +102,15 @@ struct UnoBackground: View {
             )
         }
         .ignoresSafeArea()
+    }
+}
+
+extension View {
+    /// `NavigationStack` and sheet presentations paint their own opaque container
+    /// background, which hides the one `RootView` puts behind everything. Screens living
+    /// inside such a container repaint the same backdrop so every surface matches.
+    func unoBackdrop() -> some View {
+        background(UnoBackground())
     }
 }
 
